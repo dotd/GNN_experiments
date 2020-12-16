@@ -4,12 +4,12 @@ import src.synthetic.generator as generator
 
 def tst_generate_synthetic_sets():
     num_samples = 10
-    num_centers = 20
+    num_centers = 3
     alpha_bet = 20
     noise = 0.05
     min_num = 3
     max_num = 7
-    random = np.random.RandomState(0)
+    random = np.random.RandomState(1)
 
     synthetic_set = generator.generate_synthetic_sets(num_samples=num_samples,
                                                       num_centers=num_centers,
@@ -18,7 +18,7 @@ def tst_generate_synthetic_sets():
                                                       min_num=min_num,
                                                       max_num=max_num,
                                                       random=random)
-    print(f"synthetic set={synthetic_set}")
+    print(f"synthetic set:\n{synthetic_set}")
 
 
 if __name__ == "__main__":

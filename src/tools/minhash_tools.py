@@ -1,5 +1,4 @@
-from random import randint
-
+import numpy as np
 
 # Taken from
 # https://stackoverflow.com/questions/14533420/can-you-suggest-a-good-minhash-implementation
@@ -8,28 +7,33 @@ from random import randint
 class MinHash:
 
     def __init__(self,
-                 N=3,  # specify the length of each minhash vector
+                 N,  # specify the length of each minhash vector
+                 rnd,
                  max_val=(2 ** 32) - 1,
                  perms=None,
-                 prime=4294967311):
+                 prime=4294967311
+                 ):
         self.N = N
         self.max_val = max_val
         self.prime = prime
         if perms is None:
-            self.perms = [(randint(0, self.max_val), randint(0, self.max_val)) for i in range(self.N)]
+            self.perms = [(rnd.randint(0, self.max_val), rnd.randint(0, self.max_val)) for i in range(self.N)]
         else:
             self.perms = perms
 
     def apply(self, s):
         vec = [float('inf') for i in range(self.N)]
+        vec_val = [None for i in range(self.N)]
+        translation = dict()
 
         for val_orig in s:
 
             # ensure s is composed of integers
             if not isinstance(val_orig, int):
-                val = hash(val_orig)
+                val = hash(val_orig) % self.prime
             else:
                 val = val_orig
+            translation[val] = val_orig
 
             # loop over each "permutation function"
             for perm_idx, perm_vals in enumerate(self.perms):
@@ -41,6 +45,34 @@ class MinHash:
                 # conditionally update the `ith` value of vec
                 if vec[perm_idx] > output:
                     vec[perm_idx] = output
+                    vec_val[perm_idx] = val_orig
 
         # the returned vector represents the minimum hash of the set s
-        return vec
+        return vec, vec_val, translation
+
+
+def compute_jaacard(s1, s2):
+    s1 = set(s1)
+    s2 = set(s2)
+    actual_jaccard = float(len(s1.intersection(s2))) / float(len(s1.union(s2)))
+    return actual_jaccard
+
+
+def compute_agreement(s1, s2):
+    return np.sum([1 if x==y else 0 for (x, y) in zip(s1,s2)]) / len(s1)
+
+
+def create_jaacard_table(sets):
+    results = list()
+    for i1 in range(0, len(sets) - 1):
+        for i2 in range(i1+1, len(sets)):
+            results.append([i1, i2, compute_jaacard(sets[i1], sets[i2])])
+    return results
+
+
+def create_agreement_table(sets):
+    results = list()
+    for i1 in range(0, len(sets) - 1):
+        for i2 in range(i1+1, len(sets)):
+            results.append([i1, i2, compute_agreement(sets[i1], sets[i2])])
+    return results

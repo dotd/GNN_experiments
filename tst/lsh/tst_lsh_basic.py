@@ -17,7 +17,11 @@ def tst_lsh_basic():
         std_of_threshold,
         random)
 
-    print(f"{print_lsh_func(lsh.lsh_funcs)}")
+    # print(f"{print_lsh_func(lsh.lsh_funcs)}")
+    vec = random.normal(size=(din,))
+    signature = lsh.sign_vector(vec)
+    print(f"vec={vec}")
+    print(f"signature={signature}")
 
 
 if __name__ == "__main__":

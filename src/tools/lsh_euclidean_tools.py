@@ -23,7 +23,10 @@ class LSH:
             self.lsh_thresholds.append(self.random.normal(0, self.std_of_threshold, size=self.sparsity))
 
     def sign_vector(self, vec):
-        pass
+        signatures = list()
+        for i in range(self.num_functions):
+            signatures.append(vec[self.indices[i]] <= self.lsh_thresholds[i])
+        return np.concatenate(signatures, axis=0) + 0
 
 
 def print_lsh_func(mat):

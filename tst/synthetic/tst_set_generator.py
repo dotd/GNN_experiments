@@ -1,5 +1,5 @@
 import numpy as np
-import src.synthetic.generator as generator
+import src.synthetic.set_generator as generator
 
 
 def tst_generate_synthetic_sets():

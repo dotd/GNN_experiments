@@ -1,7 +1,7 @@
 from ogb.graphproppred import PygGraphPropPredDataset
 from torch_geometric.data import DataLoader
 
-from src.proxy_utils import set_proxy
+from src.utils.proxy_utils import set_proxy
 
 set_proxy()
 

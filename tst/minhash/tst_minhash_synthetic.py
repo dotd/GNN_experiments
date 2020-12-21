@@ -1,7 +1,7 @@
 import numpy as np
-from src.tools.minhash_tools import MinHash
+from src.utils.minhash_tools import MinHash
 from src.synthetic.set_generator import generate_synthetic_sets
-from src.tools.minhash_tools import create_jaacard_table, create_agreement_table
+from src.utils.minhash_tools import create_jaacard_table, create_agreement_table
 import json
 import pprint
 

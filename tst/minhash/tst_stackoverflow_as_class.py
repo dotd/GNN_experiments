@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.spatial.distance import cosine
-from src.tools.minhash_tools import MinHash
-from src.tools.minhash_tools import create_jaacard_table, create_agreement_table
+from src.utils.minhash_tools import MinHash
+from src.utils.minhash_tools import create_jaacard_table, create_agreement_table
 
 
 # specify some input sets

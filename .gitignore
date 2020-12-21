@@ -4,3 +4,4 @@ login_credentials.txt
 *pyc
 tst/ogb/dataset/
 data/
+data_fast/

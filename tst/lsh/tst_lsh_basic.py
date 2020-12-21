@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.tools.lsh_euclidean_tools import LSH, print_lsh_func
+from src.utils.lsh_euclidean_tools import LSH, print_lsh_func
 
 
 def tst_lsh_basic():

@@ -1,4 +1,4 @@
-from src.proxy_utils import load_user_password
+from src.utils.proxy_utils import load_user_password
 
 
 def tst_proxy_utils():

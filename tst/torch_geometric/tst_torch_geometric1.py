@@ -1,5 +1,6 @@
 import pickle
 import torch
+import gc
 
 from torch.nn import Linear
 import torch.nn.functional as F
@@ -15,74 +16,82 @@ from src.utils.file_utils import create_folder_safe, save_str, file_exists
 
 # Download dataset
 
-name = 'MUTAG'
-pickle_path = f'{ROOT_DIR}/data_fast/TUDataset/{name}/'
-pickle_file = f"{name}.p"
-pickle_full = f"{pickle_path}/{pickle_file}"
-if file_exists(pickle_full):
-    print("path exists - load fast pickle")
-    dataset = pickle.load(open(pickle_full, "rb"))
-else:
-    print("Did not load yet: download data and store")
-    set_proxy()
-    dataset = TUDataset(root=f'{ROOT_DIR}/data/TUDataset', name=name)
-    create_folder_safe(pickle_path)
-    pickle.dump(dataset, open(pickle_full, "wb"))
 
-# save dataset
+def load_TU_dataset(name = 'MUTAG'):
+    pickle_path = f'{ROOT_DIR}/data_fast/TUDataset/{name}/'
+    pickle_file = f"{name}.p"
+    pickle_full = f"{pickle_path}/{pickle_file}"
+    if file_exists(pickle_full):
+        print("path exists - load fast pickle")
+        f = open(pickle_full, "rb")
+        gc.disable()
+        dataset = pickle.load(f)
+        gc.enable()
+        f.close()
+    else:
+        print("Did not load yet: download data and store")
+        set_proxy()
+        dataset = TUDataset(root=f'{ROOT_DIR}/data/TUDataset', name=name)
+        create_folder_safe(pickle_path)
+        pickle.dump(dataset, open(pickle_full, "wb"), protocol=-1)
+    return dataset
 
 
-# Show the dataset stats
-print()
-print(f'Dataset: {dataset}:')
-print('====================')
-print(f'Number of graphs: {len(dataset)}')
-print(f'Number of features: {dataset.num_features}')
-print(f'Number of classes: {dataset.num_classes}')
-
-# Show the first graph.
-data = dataset[0]  # Get the first graph object.
-
-print()
-print(data)
-print('=============================================================')
-
-# Gather some statistics about the first graph.
-print(f'Number of nodes: {data.num_nodes}')
-print(f'Number of edges: {data.num_edges}')
-print(f'Average node degree: {data.num_edges / data.num_nodes:.2f}')
-print(f'Contains isolated nodes: {data.contains_isolated_nodes()}')
-print(f'Contains self-loops: {data.contains_self_loops()}')
-print(f'Is undirected: {data.is_undirected()}')
-
-torch.manual_seed(12345)
-dataset = dataset.shuffle()
-
-train_dataset = dataset[:150]
-test_dataset = dataset[150:]
-
-print(f'Number of training graphs: {len(train_dataset)}')
-print(f'Number of test graphs: {len(test_dataset)}')
-
-train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
-
-for step, data in enumerate(train_loader):
-    print(f'Step {step + 1}:')
-    print('=======')
-    print(f'Number of graphs in the current batch: {data.num_graphs}')
-    print(data)
+def show_dataset_stats(dataset):
+    # Show the dataset stats
     print()
+    print(f'Dataset: {dataset}:')
+    print('====================')
+    print(f'Number of graphs: {len(dataset)}')
+    print(f'Number of features: {dataset.num_features}')
+    print(f'Number of classes: {dataset.num_classes}')
+
+    # Show the first graph.
+    data = dataset[0]  # Get the first graph object.
+
+    print()
+    print(data)
+    print('=============================================================')
+
+    # Gather some statistics about the first graph.
+    print(f'Number of nodes: {data.num_nodes}')
+    print(f'Number of edges: {data.num_edges}')
+    print(f'Average node degree: {data.num_edges / data.num_nodes:.2f}')
+    print(f'Contains isolated nodes: {data.contains_isolated_nodes()}')
+    print(f'Contains self-loops: {data.contains_self_loops()}')
+    print(f'Is undirected: {data.is_undirected()}')
+
+
+def split_to_train_test(dataset):
+    torch.manual_seed(12345)
+    dataset = dataset.shuffle()
+
+    train_dataset = dataset[:150]
+    test_dataset = dataset[150:]
+
+    print(f'Number of training graphs: {len(train_dataset)}')
+    print(f'Number of test graphs: {len(test_dataset)}')
+
+    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
+
+    for step, data in enumerate(train_loader):
+        print(f'Step {step + 1}:')
+        print('=======')
+        print(f'Number of graphs in the current batch: {data.num_graphs}')
+        print(data)
+        print()
+    return train_dataset, test_dataset, train_loader, test_loader
 
 
 class GCN(torch.nn.Module):
-    def __init__(self, hidden_channels):
+    def __init__(self, hidden_channels, in_size, out_size):
         super(GCN, self).__init__()
         torch.manual_seed(12345)
-        self.conv1 = GCNConv(dataset.num_node_features, hidden_channels)
+        self.conv1 = GCNConv(in_size, hidden_channels)
         self.conv2 = GCNConv(hidden_channels, hidden_channels)
         self.conv3 = GCNConv(hidden_channels, hidden_channels)
-        self.lin = Linear(hidden_channels, dataset.num_classes)
+        self.lin = Linear(hidden_channels, out_size)
 
     def forward(self, x, edge_index, batch):
         # 1. Obtain node embeddings
@@ -102,16 +111,10 @@ class GCN(torch.nn.Module):
         return x
 
 
-model = GCN(hidden_channels=64)
-print(model)
-
-model = GCN(hidden_channels=64)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-criterion = torch.nn.CrossEntropyLoss()
-
-
-def train():
+def train(model, train_loader):
     model.train()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    criterion = torch.nn.CrossEntropyLoss()
 
     for data in train_loader:  # Iterate in batches over the training dataset.
         out = model(data.x, data.edge_index, data.batch)  # Perform a single forward pass.
@@ -121,7 +124,7 @@ def train():
         optimizer.zero_grad()  # Clear gradients.
 
 
-def test(loader):
+def func_test(model, loader):
     model.eval()
 
     correct = 0
@@ -132,11 +135,22 @@ def test(loader):
     return correct / len(loader.dataset)  # Derive ratio of correct predictions.
 
 
-test_acc = test(test_loader)
-print(f'Test Acc: {test_acc:.4f}')
+def classify():
+    dataset = load_TU_dataset()
+    show_dataset_stats(dataset)
+    train_dataset, test_dataset, train_loader, test_loader = split_to_train_test(dataset)
+    model = GCN(hidden_channels=64, in_size=dataset.num_node_features, out_size=dataset.num_classes)
+    print(model)
 
-for epoch in range(1):
-    train()
-    train_acc = test(train_loader)
-    test_acc = test(test_loader)
-    print(f'Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
+    test_acc = func_test(model, test_loader)
+    print(f'Test Acc: {test_acc:.4f}')
+
+    for epoch in range(1):
+        train(model, train_loader)
+        train_acc = func_test(model, train_loader)
+        test_acc = func_test(model, test_loader)
+        print(f'Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
+
+
+if __name__ == "__main__":
+    classify()

@@ -1,9 +1,11 @@
 import numpy as np
+from torch_geometric.data import DataLoader
 
 from src.synthetic.random_graph_dataset import generate_graphs_dataset
+from tst.torch_geometric.tst_torch_geometric1 import GCN
+from src.synthetic.synthetic_utils import transform_dataset_to_torch_geometric_dataset
 
-
-def tst_generate_graphs_dataset():
+def tst_classify_synthetic():
     num_samples = 100
     num_classes = 2
     min_nodes = 5
@@ -32,7 +34,14 @@ def tst_generate_graphs_dataset():
 
     print("")
     print(graph_dataset)
+    tg_dataset = transform_dataset_to_torch_geometric_dataset(graph_dataset.samples)
+    train_loader = DataLoader(tg_dataset, batch_size=64, shuffle=True)
+    test_loader = DataLoader(tg_dataset, batch_size=64, shuffle=False)
+
+
+
+
 
 
 if __name__ == "__main__":
-    tst_generate_graphs_dataset()
+    tst_classify_synthetic()

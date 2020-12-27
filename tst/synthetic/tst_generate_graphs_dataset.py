@@ -16,19 +16,19 @@ def tst_generate_graphs_dataset():
     symmetric_flag = True
     random = np.random.RandomState(0)
 
-    dataset = generate_graphs_dataset(num_samples=num_samples,
-                                      num_classes=num_classes,
-                                      min_nodes=min_nodes,
-                                      max_nodes=max_nodes,
-                                      dim_nodes=dim_nodes,
-                                      class_nodes_var=class_nodes_var,
-                                      noise_nodes=noise_nodes,
-                                      connectivity_rate=connectivity_rate,
-                                      connectivity_rate_noise=connectivity_rate_noise,
-                                      symmetric_flag=symmetric_flag,
-                                      random=random)
+    graph_dataset = generate_graphs_dataset(num_samples=num_samples,
+                                            num_classes=num_classes,
+                                            min_nodes=min_nodes,
+                                            max_nodes=max_nodes,
+                                            dim_nodes=dim_nodes,
+                                            class_nodes_var=class_nodes_var,
+                                            noise_nodes=noise_nodes,
+                                            connectivity_rate=connectivity_rate,
+                                            connectivity_rate_noise=connectivity_rate_noise,
+                                            symmetric_flag=symmetric_flag,
+                                            random=random)
 
-    print(dataset)
+    print(graph_dataset.__str__())
 
 
 if __name__ == "__main__":

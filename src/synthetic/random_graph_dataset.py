@@ -36,9 +36,13 @@ class GraphDataset:
 
     def __str__(self):
         s = list()
+        s.append(f"centers=\n")
+        for c in range(len(self.centers)):
+            s.append(f"{self.centers[c].__str__()}\n")
+        return "".join(s)
+
+
         
-
-
 
 def generate_graphs_dataset(num_samples,
                             num_classes,
@@ -66,7 +70,7 @@ def generate_graphs_dataset(num_samples,
         random.shuffle(connectivity_mat)
         connectivity_mat = connectivity_mat.reshape((num_nodes, num_nodes))
         print(connectivity_mat)
-        vector = random.normal(size=(num_classes, dim_nodes))
+        vector = random.normal(size=(num_nodes, dim_nodes))
 
         connectivity_mats.append(connectivity_mat)
         nodes_vectors.append(vector)

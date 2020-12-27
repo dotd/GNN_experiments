@@ -42,8 +42,6 @@ class GraphDataset:
         return "".join(s)
 
 
-        
-
 def generate_graphs_dataset(num_samples,
                             num_classes,
                             min_nodes,

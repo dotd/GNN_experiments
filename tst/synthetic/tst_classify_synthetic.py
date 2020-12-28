@@ -1,9 +1,12 @@
 import numpy as np
+import torch
 from torch_geometric.data import DataLoader
 
 from src.synthetic.random_graph_dataset import generate_graphs_dataset
 from tst.torch_geometric.tst_torch_geometric1 import GCN
 from src.synthetic.synthetic_utils import transform_dataset_to_torch_geometric_dataset
+from tst.torch_geometric.tst_torch_geometric1 import train, func_test
+
 
 def tst_classify_synthetic():
     num_samples = 100
@@ -32,15 +35,22 @@ def tst_classify_synthetic():
                                             symmetric_flag=symmetric_flag,
                                             random=random)
 
-    print("")
-    print(graph_dataset)
+    # print("")
+    # print(graph_dataset)
     tg_dataset = transform_dataset_to_torch_geometric_dataset(graph_dataset.samples)
     train_loader = DataLoader(tg_dataset, batch_size=64, shuffle=True)
     test_loader = DataLoader(tg_dataset, batch_size=64, shuffle=False)
+    model = GCN(hidden_channels=60, in_size=dim_nodes, out_size=dim_nodes)
+    train(model, train_loader)
 
+    test_acc = func_test(model, test_loader)
+    print(f'Test Acc: {test_acc:.4f}')
 
-
-
+    for epoch in range(10):
+        train(model, train_loader)
+        train_acc = func_test(model, train_loader)
+        test_acc = func_test(model, test_loader)
+        print(f'Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
 
 
 if __name__ == "__main__":

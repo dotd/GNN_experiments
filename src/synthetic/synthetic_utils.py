@@ -13,6 +13,6 @@ def transform_graph_sample_to_torch_geometric_data(graph_sample):
 
 def transform_dataset_to_torch_geometric_dataset(dataset):
     tg_dataset = list()
-    for graph_sample in range(dataset):
+    for graph_sample in dataset:
         tg_dataset.append(transform_graph_sample_to_torch_geometric_data(graph_sample))
     return tg_dataset

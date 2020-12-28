@@ -89,6 +89,7 @@ def split_to_train_test(dataset):
 
 
 class GCN(torch.nn.Module):
+
     def __init__(self, hidden_channels, in_size, out_size):
         super(GCN, self).__init__()
         torch.manual_seed(12345)

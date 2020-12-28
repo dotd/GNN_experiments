@@ -1,6 +1,8 @@
 import numpy as np
 import torch
+print("Before importing tg")
 from torch_geometric.data import DataLoader
+print("After importing tg")
 
 from src.synthetic.random_graph_dataset import generate_graphs_dataset
 from tst.torch_geometric.tst_torch_geometric1 import GCN
@@ -9,6 +11,7 @@ from tst.torch_geometric.tst_torch_geometric1 import train, func_test
 
 
 def tst_classify_synthetic():
+    print("Start tst_classify_synthetic")
     num_samples = 100
     num_classes = 2
     min_nodes = 5
@@ -37,10 +40,10 @@ def tst_classify_synthetic():
 
     # print("")
     # print(graph_dataset)
-    tg_dataset = transform_dataset_to_torch_geometric_dataset(graph_dataset.samples)
+    tg_dataset = transform_dataset_to_torch_geometric_dataset(graph_dataset.samples, graph_dataset.labels, num_classes)
     train_loader = DataLoader(tg_dataset, batch_size=64, shuffle=True)
     test_loader = DataLoader(tg_dataset, batch_size=64, shuffle=False)
-    model = GCN(hidden_channels=60, in_size=dim_nodes, out_size=dim_nodes)
+    model = GCN(hidden_channels=60, in_size=dim_nodes, out_size=num_classes)
     train(model, train_loader)
 
     test_acc = func_test(model, test_loader)

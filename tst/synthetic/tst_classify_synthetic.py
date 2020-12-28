@@ -1,8 +1,9 @@
 import numpy as np
+import time
+start_time = time.time()
+
 import torch
-print("Before importing tg")
 from torch_geometric.data import DataLoader
-print("After importing tg")
 
 from src.synthetic.random_graph_dataset import generate_graphs_dataset
 from tst.torch_geometric.tst_torch_geometric1 import GCN
@@ -11,13 +12,13 @@ from tst.torch_geometric.tst_torch_geometric1 import train, func_test
 
 
 def tst_classify_synthetic():
-    print("Start tst_classify_synthetic")
-    num_samples = 100
+    print(f"{time.time() - start_time:.4f} tst_classify_synthetic")
+    num_samples = 1000
     num_classes = 2
-    min_nodes = 5
+    min_nodes = 10
     max_nodes = 10
     dim_nodes = 4
-    noise_nodes = 0.1
+    noise_nodes = 1
     connectivity_rate = 0.2
     connectivity_rate_noise = 0.05
     symmetric_flag = True
@@ -37,6 +38,7 @@ def tst_classify_synthetic():
                                             noise_add_node=noise_add_node,
                                             symmetric_flag=symmetric_flag,
                                             random=random)
+    print(f"{time.time() - start_time:.4f} Finished generating dataset")
 
     # print("")
     # print(graph_dataset)
@@ -47,14 +49,15 @@ def tst_classify_synthetic():
     train(model, train_loader)
 
     test_acc = func_test(model, test_loader)
-    print(f'Test Acc: {test_acc:.4f}')
+    print(f'{time.time() - start_time:.4f} Test Acc: {test_acc:.4f}')
 
     for epoch in range(10):
         train(model, train_loader)
         train_acc = func_test(model, train_loader)
         test_acc = func_test(model, test_loader)
-        print(f'Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
+        print(f'{time.time() - start_time:.4f} Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
 
 
 if __name__ == "__main__":
+    print(f"{time.time() - start_time:.4f} start time")
     tst_classify_synthetic()

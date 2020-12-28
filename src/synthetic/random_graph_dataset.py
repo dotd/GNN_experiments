@@ -89,7 +89,7 @@ def create_centers(num_classes, min_nodes, max_nodes, connectivity_rate, symmetr
 
     for c in range(num_classes):
         # decide num of nodes
-        num_nodes = random.randint(min_nodes, max_nodes)
+        num_nodes = random.randint(min_nodes, max_nodes+1)
 
         edges_full = np.zeros(shape=(num_nodes * num_nodes, 1))
         edges_full[:int(num_nodes * num_nodes * connectivity_rate)] = 1

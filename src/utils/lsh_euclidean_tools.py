@@ -28,6 +28,9 @@ class LSH:
             signatures.append(vec[self.indices[i]] <= self.lsh_thresholds[i])
         return np.concatenate(signatures, axis=0) + 0
 
+    def sign_vectors(self, vecs):
+        pass
+
 
 def print_lsh_func(mat):
     return "\n".join([",".join(["" if x == 0.0 else f"{x}" for x in mat[y, :]]) for y in range(mat.shape[0])])

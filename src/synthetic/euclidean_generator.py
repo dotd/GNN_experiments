@@ -1,7 +1,22 @@
 import numpy as np
 
 
-def create_gauss_data(din, num_centers, num_samples, random, noise):
+class EuclideanDataset:
+
+    def __init__(self, samples, labels, centers):
+        self.samples = samples
+        self.centers = centers
+        self.labels = labels
+
+    def __str__(self):
+        s = list()
+        s.append(f"centers:\n")
+        for c in range(len(self.centers)):
+            s.append(f"center {c:03}: {' '.join([f'{num:+2.4f}' for num in self.centers[c]])}\n")
+        return "".join(s)
+
+
+def create_gauss_data(din, num_centers, num_samples, noise, random):
     """
     This function generates gaussian data
     :param din: input dimension
@@ -14,8 +29,8 @@ def create_gauss_data(din, num_centers, num_samples, random, noise):
     S: samples from space C
     L: samples labels
     """
-    centers = random.normal(size=(din, num_centers))  # initialize centers
-    samples = np.zeros(shape=(din, num_samples))  # initialize samples
+    centers = random.normal(size=(num_centers, din))  # initialize centers
+    samples = np.zeros(shape=(num_samples, din))  # initialize samples
     labels = np.zeros(shape=(num_samples,), dtype=int)  # initialize Labels
 
     # create the data
@@ -25,8 +40,8 @@ def create_gauss_data(din, num_centers, num_samples, random, noise):
         # put in labels
         labels[idx_sample] = int(c)
         # get the relevant center
-        samples[:, idx_sample] = centers[:, c]
+        samples[idx_sample, :] = centers[c, :]
         for j in range(din):
-            samples[j, idx_sample] += random.normal() * noise
+            samples[idx_sample, j] += random.normal() * noise
 
-    return centers, samples, labels
+    return EuclideanDataset(samples, labels, centers)

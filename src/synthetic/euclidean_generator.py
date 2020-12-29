@@ -13,6 +13,9 @@ class EuclideanDataset:
         s.append(f"centers:\n")
         for c in range(len(self.centers)):
             s.append(f"center {c:03}: {' '.join([f'{num:+2.4f}' for num in self.centers[c]])}\n")
+        s.append(f"samples:\n")
+        for i in range(len(self.samples)):
+            s.append(f"sample {i:03}: {' '.join([f'{num:+2.4f}' for num in self.samples[i]])}\n")
         return "".join(s)
 
 

@@ -1,11 +1,12 @@
+import numpy as np
 import pickle
 import torch
 import gc
+import copy
 
 from torch.nn import Linear
 import torch.nn.functional as F
 
-from torch_geometric.datasets import TUDataset
 from torch_geometric.data import DataLoader
 from torch_geometric.nn import GCNConv
 from torch_geometric.nn import global_mean_pool
@@ -30,6 +31,7 @@ def load_TU_dataset(name = 'MUTAG'):
         f.close()
     else:
         print("Did not load yet: download data and store")
+        from torch_geometric.datasets import TUDataset
         set_proxy()
         dataset = TUDataset(root=f'{ROOT_DIR}/data/TUDataset', name=name)
         create_folder_safe(pickle_path)
@@ -64,7 +66,7 @@ def show_dataset_stats(dataset):
 
 def split_to_train_test(dataset):
     torch.manual_seed(12345)
-    dataset = dataset.shuffle()
+    # dataset = dataset.shuffle()
 
     train_dataset = dataset[:150]
     test_dataset = dataset[150:]
@@ -75,16 +77,19 @@ def split_to_train_test(dataset):
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
+    """
     for step, data in enumerate(train_loader):
         print(f'Step {step + 1}:')
         print('=======')
         print(f'Number of graphs in the current batch: {data.num_graphs}')
         print(data)
         print()
+    """
     return train_dataset, test_dataset, train_loader, test_loader
 
 
 class GCN(torch.nn.Module):
+
     def __init__(self, hidden_channels, in_size, out_size):
         super(GCN, self).__init__()
         torch.manual_seed(12345)
@@ -135,22 +140,54 @@ def func_test(model, loader):
     return correct / len(loader.dataset)  # Derive ratio of correct predictions.
 
 
-def classify():
-    dataset = load_TU_dataset()
-    show_dataset_stats(dataset)
+def sparsify_using_lsh():
+    pass
+
+
+def sparsify_randomly(dataset, sparsification_rate, random):
+    for i in range(len(dataset)):
+        length = dataset[i].edge_index.shape[1]
+        length_final = int(length * sparsification_rate)
+        indices = list(range(length))
+        indices = random.permutation(indices)
+        indices = indices[:length_final]
+        dataset[i].edge_index = dataset[i].edge_index[:, indices]
+        dataset[i].edge_attr = dataset[i].edge_attr[indices, :]
+    return dataset
+
+
+def classify(dataset, model_in_size, num_classes):
+    # Show some stats
+    # show_dataset_stats(dataset)
+    # Split to train and test
     train_dataset, test_dataset, train_loader, test_loader = split_to_train_test(dataset)
-    model = GCN(hidden_channels=64, in_size=dataset.num_node_features, out_size=dataset.num_classes)
+    model = GCN(hidden_channels=64, in_size=model_in_size, out_size=num_classes)
     print(model)
 
     test_acc = func_test(model, test_loader)
     print(f'Test Acc: {test_acc:.4f}')
 
-    for epoch in range(1):
+    for epoch in range(10):
         train(model, train_loader)
         train_acc = func_test(model, train_loader)
         test_acc = func_test(model, test_loader)
         print(f'Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
 
 
+def run():
+    random = np.random.RandomState(0)
+    # Load the dataset
+    dataset_orig = load_TU_dataset()
+    num_classes = dataset_orig.num_classes
+    in_size = dataset_orig.num_node_features
+    dataset_orig = list(dataset_orig)
+    dataset_sparse = copy.deepcopy(dataset_orig)
+    dataset_sparse = sparsify_randomly(dataset_sparse, 0.1, random=random)
+    print("Classify dataset_orig")
+    classify(dataset_orig, model_in_size=in_size, num_classes=num_classes)
+    print("Classify dataset_sparse")
+    classify(dataset_sparse, model_in_size=in_size, num_classes=num_classes)
+
+
 if __name__ == "__main__":
-    classify()
+    run()

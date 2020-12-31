@@ -8,7 +8,7 @@ class MinHash:
 
     def __init__(self,
                  N,  # specify the length of each minhash vector
-                 rnd,
+                 random,
                  max_val=(2 ** 32) - 1,
                  perms=None,
                  prime=4294967311
@@ -17,7 +17,7 @@ class MinHash:
         self.max_val = max_val
         self.prime = prime
         if perms is None:
-            self.perms = [(rnd.randint(0, self.max_val), rnd.randint(0, self.max_val)) for i in range(self.N)]
+            self.perms = [(random.randint(0, min(self.max_val, prime)), random.randint(0, min(self.max_val, prime))) for i in range(self.N)]
         else:
             self.perms = perms
 
@@ -50,6 +50,14 @@ class MinHash:
         # the returned vector represents the minimum hash of the set s
         return vec, vec_val, translation
 
+    def __str__(self):
+        s = list()
+        s.append(f"N={self.N}")
+        s.append(f"max_val={self.max_val}")
+        s.append(f"prime={self.prime}")
+        for i, perm in enumerate(self.perms):
+            s.append(f"func ({i}={self.perms[i][0]} * val + {self.perms[i][1]}) % {self.prime}")
+        return "\n".join(s)
 
 def compute_jaacard(s1, s2):
     s1 = set(s1)

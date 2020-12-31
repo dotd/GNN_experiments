@@ -8,7 +8,7 @@ class LSH:
                  num_functions,
                  sparsity,
                  std_of_threshold,
-                 random=np.random.RandomState()):
+                 random):
         self.din = din
         self.num_functions = num_functions
         self.sparsity = sparsity
@@ -27,6 +27,20 @@ class LSH:
         for i in range(self.num_functions):
             signatures.append(vec[self.indices[i]] <= self.lsh_thresholds[i])
         return np.concatenate(signatures, axis=0) + 0
+
+    def sign_vectors(self, vecs):
+        pass
+
+    def __str__(self):
+        s = list()
+        s.append(f"din={self.din}")
+        s.append(f"num_functions={self.num_functions}")
+        s.append(f"sparsity={self.sparsity}")
+        s.append(f"std_of_threshold={self.std_of_threshold}")
+        for i in range(self.num_functions):
+            s.append(f"func {i}, indices:{self.indices[i]} thresholds:{self.lsh_thresholds[i]}")
+        return "\n".join(s)
+
 
 
 def print_lsh_func(mat):

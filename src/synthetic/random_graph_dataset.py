@@ -34,6 +34,10 @@ class GraphSample:
             self.edges_list = np.array(self.edges_list).T
         return self.edges_list
 
+    def set_edges_list(self, edges_list):
+        self.edges_list = edges_list
+        self.edges_full = None
+
     def __str__(self):
         s = list()
         for y in range(self.num_nodes):

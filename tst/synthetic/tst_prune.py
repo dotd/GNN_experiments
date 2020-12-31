@@ -3,15 +3,16 @@ import time
 start_time = time.time()
 
 import torch
-# from torch_geometric.data import DataLoader
+from torch_geometric.data import DataLoader
 
 from src.synthetic.random_graph_dataset import generate_graphs_dataset
-# from tst.torch_geometric.tst_torch_geometric1 import GCN
-#from src.synthetic.synthetic_utils import transform_dataset_to_torch_geometric_dataset
-# from tst.torch_geometric.tst_torch_geometric1 import train, func_test
+from tst.torch_geometric.tst_torch_geometric1 import GCN
+from src.synthetic.synthetic_utils import transform_dataset_to_torch_geometric_dataset
+from tst.torch_geometric.tst_torch_geometric1 import train, func_test
 
 
 from src.utils.graph_prune_utils import graph_prune_edges_by_minhash_lsh
+from src.utils.graph_prune_utils import dataset_prune_edges_by_minhash_lsh
 from src.utils.lsh_euclidean_tools import LSH
 from src.utils.minhash_tools import MinHash
 
@@ -46,9 +47,6 @@ def tst_classify_synthetic():
                                             noise_add_node=noise_add_node,
                                             symmetric_flag=symmetric_flag,
                                             random=random)
-    # Create dataset
-    sample = graph_dataset.samples[0]
-
     # MinHash parameters
     num_minhash_funcs = 2
     minhash = MinHash(num_minhash_funcs, random, prime=2147483647)
@@ -65,13 +63,9 @@ def tst_classify_synthetic():
               random=random)
     print(f"lsh:\n{lsh}")
 
-
-    print(sample.get_edges_list())
     # Prune
-    new_edges = graph_prune_edges_by_minhash_lsh(sample, minhash, lsh)
-    print(new_edges)
+    dataset_prune_edges_by_minhash_lsh(graph_dataset, minhash, lsh)
 
-    '''    
     print(f"{time.time() - start_time:.4f} Finished generating dataset")
 
     # print("")
@@ -90,7 +84,6 @@ def tst_classify_synthetic():
         train_acc = func_test(model, train_loader)
         test_acc = func_test(model, test_loader)
         print(f'{time.time() - start_time:.4f} Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
-    '''
 
 
 if __name__ == "__main__":

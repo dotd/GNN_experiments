@@ -1,3 +1,8 @@
+"""
+In this example, the number of workers is 3, while the number of values is 14 (just a number)...
+The sleep_value of 1 sec is for the observer to see that in each cycle only 3 jobs are carries out in parallel.
+"""
+
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import time
 from time import sleep

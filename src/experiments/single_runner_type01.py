@@ -2,7 +2,6 @@ import numpy as np
 import time
 start_time = time.time()
 
-import torch
 from torch_geometric.data import DataLoader
 
 from src.synthetic.random_graph_dataset import generate_graphs_dataset
@@ -10,8 +9,6 @@ from tst.torch_geometric.tst_torch_geometric1 import GCN
 from src.synthetic.synthetic_utils import transform_dataset_to_torch_geometric_dataset
 from tst.torch_geometric.tst_torch_geometric1 import train, func_test
 
-
-from src.utils.graph_prune_utils import graph_prune_edges_by_minhash_lsh
 from src.utils.graph_prune_utils import dataset_prune_edges_by_minhash_lsh
 from src.utils.lsh_euclidean_tools import LSH
 from src.utils.minhash_tools import MinHash

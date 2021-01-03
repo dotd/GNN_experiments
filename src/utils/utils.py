@@ -1,3 +1,4 @@
+from itertools import product
 
 
 def pretty_vec(vec):
@@ -52,7 +53,16 @@ class dict_hierarchical:
         return s
 
 
-
+def product_dict(**kwargs):
+    """
+    Usage:
+    mydict = {"x": [1, 2, 3], "y": [4, 5]}
+    jobs = list(product_dict(**mydict))
+    """
+    keys = kwargs.keys()
+    vals = kwargs.values()
+    for instance in product(*vals):
+        yield dict(zip(keys, instance))
 
 
 

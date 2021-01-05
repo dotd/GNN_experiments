@@ -1,5 +1,6 @@
 import copy
 import numpy as np
+import networkx as nx
 
 
 class GraphSample:
@@ -7,11 +8,12 @@ class GraphSample:
     def __init__(self,
                  num_nodes,
                  nodes_vecs,
-                 edges_full):
+                 edges_full=None,
+                 edges_list=None):
         self.num_nodes = num_nodes
         self.nodes_vecs = nodes_vecs
         self.edges_full = edges_full
-        self.edges_list = None
+        self.edges_list = edges_list
 
     def remove_nodes(self, nodes_list):
         np.delete(self.edges_full, nodes_list, axis=0)
@@ -49,7 +51,34 @@ class GraphSample:
         return "".join(s)
 
 
-class GraphDataset:
+def graph_sample_to_networkx(graph_sample):
+    graph_nx = nx.Graph()
+    # Transform nodes
+    for idx in range(graph_sample.nodes_vecs.shape[0]):
+        vec = graph_sample.nodes_vecs[idx].tolist()
+        graph_nx.add_nodes_from([(idx, {"x": vec})])
+    # Transforms edges
+    for edge in graph_sample.get_edges_list().T:
+        graph_nx.add_edge(edge[0], edge[1])
+    return graph_nx
+
+
+def graph_sample_dataset_to_networkx(graph_sample_dataset):
+    samples_networkx = list()
+    centers_networkx = list()
+    # Transform the samples
+    for sample in graph_sample_dataset.samples:
+        sample_networkx = graph_sample_to_networkx(sample)
+        samples_networkx.append(sample_networkx)
+    # Transform the centers
+    for center in graph_sample_dataset.centers:
+        center_networkx = graph_sample_to_networkx(center)
+        centers_networkx.append(center_networkx)
+    graph_sample_dataset.samples = samples_networkx
+    graph_sample_dataset.centers = centers_networkx
+
+
+class GraphSampleDataset:
 
     def __init__(self,
                  samples=None,
@@ -176,5 +205,5 @@ def generate_graphs_dataset(num_samples,
         samples.append(sample)
 
     # Generate samples
-    return GraphDataset(samples=samples, labels=labels, centers=centers)
+    return GraphSampleDataset(samples=samples, labels=labels, centers=centers)
 

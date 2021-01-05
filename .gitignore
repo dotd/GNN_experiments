@@ -5,3 +5,4 @@ login_credentials.txt
 tst/ogb/dataset/
 data/
 data_fast/
+venv/

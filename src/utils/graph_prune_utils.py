@@ -15,12 +15,36 @@ def get_edges_of_nodes(num_nodes, edges_list):
 
 def graph_prune_edges_by_minhash_lsh(graph_sample, minhash, lsh):
     vectors = graph_sample.nodes_vecs
-    edges = graph_sample.edges_full
     edges_list = graph_sample.get_edges_list()
-    new_edges = list()
-    node_to_nodes = get_edges_of_nodes(graph_sample.num_nodes, edges_list)
-
     num_nodes = graph_sample.num_nodes
+    new_edges = _tg_sample_prune_edges_by_minhash_lsh_helper(num_nodes,
+                                                             edges_list,
+                                                             vectors,
+                                                             minhash,
+                                                             lsh)
+    return new_edges
+
+
+def tg_sample_prune_edges_by_minhash_lsh(tg_sample, minhash, lsh):
+    vectors = tg_sample.nodes_vecs
+    edges_list = tg_sample.get_edges_list()
+    num_nodes = tg_sample.num_nodes
+    new_edges = _tg_sample_prune_edges_by_minhash_lsh_helper(num_nodes,
+                                                             edges_list,
+                                                             vectors,
+                                                             minhash,
+                                                             lsh)
+    return new_edges
+
+
+def _tg_sample_prune_edges_by_minhash_lsh_helper(num_nodes,
+                                                 edges_list,
+                                                 vectors,
+                                                 minhash,
+                                                 lsh):
+    new_edges = list()
+
+    node_to_nodes = get_edges_of_nodes(num_nodes, edges_list)
     lsh_vectors = list()
     lsh_vectors_str = list()
     for n in range(num_nodes):
@@ -45,14 +69,15 @@ def graph_prune_edges_by_minhash_lsh(graph_sample, minhash, lsh):
     return new_edges
 
 
+
 def dataset_prune_edges_by_minhash_lsh(graph_dataset, minhash, lsh):
     for i, graph_sample in enumerate(graph_dataset.samples):
         new_edges = graph_prune_edges_by_minhash_lsh(graph_sample, minhash, lsh)
         graph_sample.set_edges_list(new_edges)
 
 
-
-
-
-def show_edges(edges):
-    pass
+def tg_prune_edges_by_minhash_lsh(tg_dataset, minhash, lsh):
+    for i, tg_sample in enumerate(tg_dataset):
+        old_edges = tg_sample.edges
+        new_edges = graph_prune_edges_by_minhash_lsh(graph_sample, minhash, lsh)
+        graph_sample.set_edges_list(new_edges)

@@ -42,14 +42,13 @@ def tst_classify_synthetic():
 
     # print("")
     # print(graph_dataset)
-    tg_dataset = transform_dataset_to_torch_geometric_dataset(graph_dataset.samples, graph_dataset.labels, num_classes)
+    tg_dataset = transform_dataset_to_torch_geometric_dataset(graph_dataset.samples, graph_dataset.labels)
     train_loader = DataLoader(tg_dataset, batch_size=64, shuffle=True)
     test_loader = DataLoader(tg_dataset, batch_size=64, shuffle=False)
     model = GCN(hidden_channels=60, in_size=dim_nodes, out_size=num_classes)
-    train(model, train_loader)
 
     test_acc = func_test(model, test_loader)
-    print(f'{time.time() - start_time:.4f} Test Acc: {test_acc:.4f}')
+    print(f'{time.time() - start_time:.4f} Test Acc (Initial): {test_acc:.4f}')
 
     for epoch in range(10):
         train(model, train_loader)

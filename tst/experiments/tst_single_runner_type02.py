@@ -11,12 +11,12 @@ from src.experiments.single_runner_type02 import single_runner_type02
 def tst_single_runner_type02():
     params = {
         "seed": [0, 12345],
-        "dataset_params.num_samples": [1000],
+        "dataset_params.num_samples": [100],
         "dataset_params.num_classes": [10],
         "dataset_params.min_nodes": [10],
         "dataset_params.max_nodes": [15],
         "common_params.dim_nodes": [11],
-        "dataset_params.connectivity_rate": [0.2],
+        "dataset_params.connectivity_rate": [0.2, 0.3, 0.4],
         "dataset_params.connectivity_rate_noise": [0.05],
         "dataset_params.noise_nodes": [1],
         "dataset_params.noise_remove_node": [0.01],

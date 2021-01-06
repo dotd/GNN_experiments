@@ -3,7 +3,6 @@ import time
 import copy
 start_time = time.time()
 
-import torch
 from torch_geometric.data import DataLoader
 
 from src.synthetic.random_graph_dataset import generate_graphs_dataset
@@ -17,11 +16,17 @@ from src.utils.lsh_euclidean_tools import LSH
 from src.utils.minhash_tools import MinHash
 
 
-def tst_classify_synthetic():
+def tst_classify_synthetic(random=np.random.RandomState(0)):
+    """
+    This tst shows how to
+    (1) Generate Dataset
+    (2) Do the prunning
+    (3) Do classification.
+    :return:
+    """
     print(f"{time.time() - start_time:.4f} tst_classify_synthetic")
 
-    random = np.random.RandomState(0)
-
+    # (1) Generate Syhthetic dataset
     # Dataset parameters
     num_samples = 1000
     num_classes = 2
@@ -47,6 +52,7 @@ def tst_classify_synthetic():
                                             noise_add_node=noise_add_node,
                                             symmetric_flag=symmetric_flag,
                                             random=random)
+    # Next, we define both Minhash and LSH for generating datasets
     # MinHash parameters
     num_minhash_funcs = 2
     minhash = MinHash(num_minhash_funcs, random, prime=2147483647)
@@ -63,6 +69,7 @@ def tst_classify_synthetic():
               random=random)
     print(f"lsh:\n{lsh}")
 
+    # (2) Do the prunning
     # Prune
     tg_dataset = transform_dataset_to_torch_geometric_dataset(graph_dataset.samples, graph_dataset.labels)
     original_tg_dataset = copy.deepcopy(tg_dataset)
@@ -73,6 +80,7 @@ def tst_classify_synthetic():
 
     print(f"{time.time() - start_time:.4f} Finished generating dataset")
 
+    # (3) Do the training.
     train_loader = DataLoader(tg_dataset, batch_size=64, shuffle=True)
     test_loader = DataLoader(tg_dataset, batch_size=64, shuffle=False)
     model = GCN(hidden_channels=60, in_size=dim_nodes, out_size=num_classes)

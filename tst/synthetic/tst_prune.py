@@ -12,8 +12,7 @@ from src.synthetic.synthetic_utils import transform_dataset_to_torch_geometric_d
 from tst.torch_geometric.tst_torch_geometric1 import train, func_test
 
 
-from src.utils.graph_prune_utils import graph_prune_edges_by_minhash_lsh
-from src.utils.graph_prune_utils import dataset_prune_edges_by_minhash_lsh
+from src.utils.graph_prune_utils import tg_dataset_prune_edges_by_minhash_lsh
 from src.utils.lsh_euclidean_tools import LSH
 from src.utils.minhash_tools import MinHash
 
@@ -65,15 +64,15 @@ def tst_classify_synthetic():
     print(f"lsh:\n{lsh}")
 
     # Prune
-    original_dataset = copy.deepcopy(graph_dataset)
-    dataset_prune_edges_by_minhash_lsh(graph_dataset, minhash, lsh)
+    tg_dataset = transform_dataset_to_torch_geometric_dataset(graph_dataset.samples, graph_dataset.labels)
+    original_tg_dataset = copy.deepcopy(tg_dataset)
+    tg_dataset_prune_edges_by_minhash_lsh(tg_dataset, minhash, lsh)
 
     for i in range(min(10,len(graph_dataset.samples))):
-        print(f"{i}\npruned=\n{graph_dataset.samples[i].edges_list}\noriginal=\n{original_dataset.samples[i].edges_list}")
+        print(f"{i}\npruned=\n{tg_dataset[i].edge_index}\noriginal=\n{original_tg_dataset[i].edge_index}")
 
     print(f"{time.time() - start_time:.4f} Finished generating dataset")
 
-    tg_dataset = transform_dataset_to_torch_geometric_dataset(graph_dataset.samples, graph_dataset.labels)
     train_loader = DataLoader(tg_dataset, batch_size=64, shuffle=True)
     test_loader = DataLoader(tg_dataset, batch_size=64, shuffle=False)
     model = GCN(hidden_channels=60, in_size=dim_nodes, out_size=num_classes)

@@ -87,6 +87,8 @@ class GraphSampleDataset:
         self.samples = samples
         self.labels = labels
         self.centers = centers
+        for sample in samples:
+            sample.get_edges_list()
 
     def __str__(self):
         s = list()
@@ -205,5 +207,6 @@ def generate_graphs_dataset(num_samples,
         samples.append(sample)
 
     # Generate samples
-    return GraphSampleDataset(samples=samples, labels=labels, centers=centers)
+    gsd = GraphSampleDataset(samples=samples, labels=labels, centers=centers)
+    return gsd
 

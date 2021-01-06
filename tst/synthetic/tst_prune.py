@@ -1,8 +1,8 @@
 import numpy as np
 import time
+import copy
 start_time = time.time()
 
-import torch
 from torch_geometric.data import DataLoader
 
 from src.synthetic.random_graph_dataset import generate_graphs_dataset
@@ -11,17 +11,22 @@ from src.synthetic.synthetic_utils import transform_dataset_to_torch_geometric_d
 from tst.torch_geometric.tst_torch_geometric1 import train, func_test
 
 
-from src.utils.graph_prune_utils import graph_prune_edges_by_minhash_lsh
-from src.utils.graph_prune_utils import dataset_prune_edges_by_minhash_lsh
+from src.utils.graph_prune_utils import tg_dataset_prune_edges_by_minhash_lsh
 from src.utils.lsh_euclidean_tools import LSH
 from src.utils.minhash_tools import MinHash
 
 
-def tst_classify_synthetic():
+def tst_classify_synthetic(random=np.random.RandomState(0)):
+    """
+    This tst shows how to
+    (1) Generate Dataset
+    (2) Do the prunning
+    (3) Do classification.
+    :return:
+    """
     print(f"{time.time() - start_time:.4f} tst_classify_synthetic")
 
-    random = np.random.RandomState(0)
-
+    # (1) Generate Syhthetic dataset
     # Dataset parameters
     num_samples = 1000
     num_classes = 2
@@ -47,6 +52,7 @@ def tst_classify_synthetic():
                                             noise_add_node=noise_add_node,
                                             symmetric_flag=symmetric_flag,
                                             random=random)
+    # Next, we define both Minhash and LSH for generating datasets
     # MinHash parameters
     num_minhash_funcs = 2
     minhash = MinHash(num_minhash_funcs, random, prime=2147483647)
@@ -63,18 +69,21 @@ def tst_classify_synthetic():
               random=random)
     print(f"lsh:\n{lsh}")
 
+    # (2) Do the prunning
     # Prune
-    dataset_prune_edges_by_minhash_lsh(graph_dataset, minhash, lsh)
+    tg_dataset = transform_dataset_to_torch_geometric_dataset(graph_dataset.samples, graph_dataset.labels)
+    original_tg_dataset = copy.deepcopy(tg_dataset)
+    tg_dataset_prune_edges_by_minhash_lsh(tg_dataset, minhash, lsh)
+
+    for i in range(min(10,len(graph_dataset.samples))):
+        print(f"{i}\npruned=\n{tg_dataset[i].edge_index}\noriginal=\n{original_tg_dataset[i].edge_index}")
 
     print(f"{time.time() - start_time:.4f} Finished generating dataset")
 
-    # print("")
-    # print(graph_dataset)
-    tg_dataset = transform_dataset_to_torch_geometric_dataset(graph_dataset.samples, graph_dataset.labels, num_classes)
+    # (3) Do the training.
     train_loader = DataLoader(tg_dataset, batch_size=64, shuffle=True)
     test_loader = DataLoader(tg_dataset, batch_size=64, shuffle=False)
     model = GCN(hidden_channels=60, in_size=dim_nodes, out_size=num_classes)
-    train(model, train_loader)
 
     test_acc = func_test(model, test_loader)
     print(f'{time.time() - start_time:.4f} Test Acc: {test_acc:.4f}')

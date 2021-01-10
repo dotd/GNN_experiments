@@ -1,18 +1,18 @@
 import torch
-from conv import GNN_node
+from .conv import GNN_node
 from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool, GlobalAttention, Set2Set
 
 
-class GNN(torch.nn.Module):
+class GCN(torch.nn.Module):
 
     def __init__(self, num_tasks, num_layer=5, emb_dim=300,
-                 gnn_type='gin', virtual_node=True, residual=False, drop_ratio=0.5, JK="last", graph_pooling="mean"):
+                 residual=False, drop_ratio=0.5, JK="last", graph_pooling="mean"):
         '''
             num_tasks (int): number of labels to be predicted
             virtual_node (bool): whether to add virtual node or not
         '''
 
-        super(GNN, self).__init__()
+        super(GCN, self).__init__()
 
         self.num_layer = num_layer
         self.drop_ratio = drop_ratio
@@ -25,7 +25,7 @@ class GNN(torch.nn.Module):
             raise ValueError("Number of GNN layers must be greater than 1.")
 
         # GNN to generate node embeddings
-        self.gnn_node = GNN_node(num_layer, emb_dim, JK=JK, drop_ratio=drop_ratio, residual=residual, gnn_type=gnn_type)
+        self.gnn_node = GNN_node(num_layer, emb_dim, JK=JK, drop_ratio=drop_ratio, residual=residual)
 
         # Pooling function to generate whole-graph embeddings
         if self.graph_pooling == "sum":
@@ -57,4 +57,4 @@ class GNN(torch.nn.Module):
 
 
 if __name__ == '__main__':
-    GNN(num_tasks=10)
+    GCN(num_tasks=10)

@@ -3,7 +3,7 @@ import argparse
 import numpy as np
 import torch
 import torch.optim as optim
-from gnn import GNN
+from .gcn import GCN
 # importing OGB
 from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
 from torch_geometric.data import DataLoader
@@ -32,7 +32,7 @@ def train(model, device, loader, optimizer):
             optimizer.step()
 
 
-def eval(model, device, loader, evaluator):
+def evaluate(model, device, loader, evaluator):
     model.eval()
     y_true = []
     y_pred = []
@@ -91,7 +91,7 @@ def main():
     if args.proxy:
         set_proxy()
 
-    ### automatic dataloading and splitting
+    # automatic dataloading and splitting
     dataset = PygGraphPropPredDataset(name=args.dataset)
 
     if args.feature == 'full':
@@ -114,7 +114,7 @@ def main():
     test_loader = DataLoader(dataset[split_idx["test"]], batch_size=args.batch_size, shuffle=False,
                              num_workers=args.num_workers)
 
-    model = GNN(gnn_type='gcn', num_tasks=dataset.num_tasks, num_layer=args.num_layer, emb_dim=args.emb_dim,
+    model = GCN(num_tasks=dataset.num_tasks, num_layer=args.num_layer, emb_dim=args.emb_dim,
                 drop_ratio=args.drop_ratio, virtual_node=False).to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -129,9 +129,9 @@ def main():
         train(model, device, train_loader, optimizer)
 
         print('Evaluating...')
-        train_perf = eval(model, device, train_loader, evaluator)
-        valid_perf = eval(model, device, valid_loader, evaluator)
-        test_perf = eval(model, device, test_loader, evaluator)
+        train_perf = evaluate(model, device, train_loader, evaluator)
+        valid_perf = evaluate(model, device, valid_loader, evaluator)
+        test_perf = evaluate(model, device, test_loader, evaluator)
 
         print({'Train': train_perf, 'Validation': valid_perf, 'Test': test_perf})
 

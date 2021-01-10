@@ -9,6 +9,8 @@ from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
 from torch_geometric.data import DataLoader
 from tqdm import tqdm
 
+from src.utils.proxy_utils import set_proxy
+
 cls_criterion = torch.nn.BCEWithLogitsLoss()
 
 
@@ -81,9 +83,13 @@ def main():
                         help='full feature or simple feature')
     parser.add_argument('--filename', type=str, default="",
                         help='filename to output result (default: )')
+    parser.add_argument('--proxy', action="store_true", default=False, help="Set proxy env. variables. Need in bosch networks.",)
     args = parser.parse_args()
 
     device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
+
+    if args.proxy:
+        set_proxy()
 
     ### automatic dataloading and splitting
     dataset = PygGraphPropPredDataset(name=args.dataset)

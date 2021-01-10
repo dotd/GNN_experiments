@@ -8,6 +8,9 @@ from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
 from torch_geometric.data import DataLoader
 from tqdm import tqdm
 
+from src.utils.graph_prune_utils import tg_dataset_prune_edges_by_minhash_lsh
+from src.utils.lsh_euclidean_tools import LSH
+from src.utils.minhash_tools import MinHash
 from src.utils.proxy_utils import set_proxy
 from tst.ogb.gcn import GCN
 
@@ -92,8 +95,40 @@ def main():
     if args.proxy:
         set_proxy()
 
+    rnd = np.random.RandomState(0)
+    # MinHash parameters
+    num_minhash_funcs = 2
+    minhash = MinHash(num_minhash_funcs, rnd, prime=2147483647)
+    print(f"minhash:\n{minhash}")
+
+    # LSH parameters
+    lsh_num_funcs = 2
+    sparsity = 3
+    std_of_threshold = 1
+    dim_nodes = 9
+    lsh = LSH(dim_nodes,
+              num_functions=lsh_num_funcs,
+              sparsity=sparsity,
+              std_of_threshold=std_of_threshold,
+              random=rnd)
+    print(f"lsh:\n{lsh}")
+
+
     # automatic data loading and splitting
     dataset = PygGraphPropPredDataset(name=args.dataset)
+    split_idx = dataset.get_idx_split()
+    train_data = list(dataset[split_idx["train"]])
+    validation_data = list(dataset[split_idx["valid"]])
+    test_data = list(dataset[split_idx["test"]])
+
+    # orig_train_data_num_edges = train_data.data.edge_index.shape[1]
+
+    tg_dataset_prune_edges_by_minhash_lsh(train_data, minhash, lsh)
+    tg_dataset_prune_edges_by_minhash_lsh(validation_data, minhash, lsh)
+    tg_dataset_prune_edges_by_minhash_lsh(test_data, minhash, lsh)
+
+    # pruned_train_data_num_edges = train_data.data.edge_index.shape[1]
+    # print(f"Original num of edges in train set: {orig_train_data_num_edges}, after pruning: {pruned_train_data_num_edges}")
 
     if args.feature == 'full':
         pass
@@ -103,16 +138,16 @@ def main():
         dataset.data.x = dataset.data.x[:, :2]
         dataset.data.edge_attr = dataset.data.edge_attr[:, :2]
 
-    split_idx = dataset.get_idx_split()
+
 
     # automatic evaluator. takes dataset name as input
     evaluator = Evaluator(args.dataset)
 
-    train_loader = DataLoader(dataset[split_idx["train"]], batch_size=args.batch_size, shuffle=True,
+    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True,
                               num_workers=args.num_workers)
-    valid_loader = DataLoader(dataset[split_idx["valid"]], batch_size=args.batch_size, shuffle=False,
+    valid_loader = DataLoader(validation_data, batch_size=args.batch_size, shuffle=False,
                               num_workers=args.num_workers)
-    test_loader = DataLoader(dataset[split_idx["test"]], batch_size=args.batch_size, shuffle=False,
+    test_loader = DataLoader(test_data, batch_size=args.batch_size, shuffle=False,
                              num_workers=args.num_workers)
 
     model = GCN(num_tasks=dataset.num_tasks, num_layer=args.num_layer,

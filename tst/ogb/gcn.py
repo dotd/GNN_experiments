@@ -7,10 +7,10 @@ class GCN(torch.nn.Module):
 
     def __init__(self, num_tasks, num_layer=5, emb_dim=300,
                  residual=False, drop_ratio=0.5, JK="last", graph_pooling="mean"):
-        '''
+        """
             num_tasks (int): number of labels to be predicted
             virtual_node (bool): whether to add virtual node or not
-        '''
+        """
 
         super(GCN, self).__init__()
 
@@ -25,7 +25,7 @@ class GCN(torch.nn.Module):
             raise ValueError("Number of GNN layers must be greater than 1.")
 
         # GNN to generate node embeddings
-        self.gnn_node = GNN_node(num_layer, emb_dim, JK=JK, drop_ratio=drop_ratio, residual=residual)
+        self.gnn_node = GNN_node(num_layer, emb_dim=emb_dim, JK=JK, drop_ratio=drop_ratio, residual=residual)
 
         # Pooling function to generate whole-graph embeddings
         if self.graph_pooling == "sum":
@@ -54,7 +54,3 @@ class GCN(torch.nn.Module):
         h_graph = self.pool(h_node, batched_data.batch)
 
         return self.graph_pred_linear(h_graph)
-
-
-if __name__ == '__main__':
-    GCN(num_tasks=10)

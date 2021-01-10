@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-
+from torch_geometric.data import Data
 
 def get_edges_of_nodes(num_nodes, edges_list):
     res = dict()

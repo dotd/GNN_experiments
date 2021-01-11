@@ -6,7 +6,7 @@ import json
 import pprint
 
 # ---------------------------------------------------------
-# we generate synthetic dataset and test it.
+# we generate classification dataset and test it.
 
 rnd = np.random.RandomState(0)
 minhash = MinHash(N=2,

@@ -34,4 +34,3 @@ def transform_dataset_to_torch_geometric_dataset(graph_samples, labels):
         tg_dataset.append(transform_graph_sample_to_torch_geometric_data(graph_sample, label))
     return tg_dataset
 
-

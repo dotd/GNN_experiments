@@ -1,6 +1,7 @@
 import copy
 import numpy as np
 import networkx as nx
+import torch
 
 
 class GraphSample:
@@ -119,7 +120,13 @@ def add_edges(edges1, edges2):
     return edges
 
 
-def create_centers(num_classes, min_nodes, max_nodes, connectivity_rate, symmetric_flag, dim_nodes, random):
+def create_centers(num_classes,
+                   min_nodes,
+                   max_nodes,
+                   connectivity_rate,
+                   symmetric_flag,
+                   dim_nodes,
+                   random):
     centers = list()
 
     for c in range(num_classes):
@@ -174,7 +181,13 @@ def generate_graphs_dataset(num_samples,
                             symmetric_flag,
                             random):
     # Generate classes centers
-    centers = create_centers(num_classes, min_nodes, max_nodes, connectivity_rate, symmetric_flag, dim_nodes, random)
+    centers = create_centers(num_classes,
+                             min_nodes,
+                             max_nodes,
+                             connectivity_rate,
+                             symmetric_flag,
+                             dim_nodes,
+                             random)
     samples = list()
     labels = list()
 
@@ -210,3 +223,8 @@ def generate_graphs_dataset(num_samples,
     gsd = GraphSampleDataset(samples=samples, labels=labels, centers=centers)
     return gsd
 
+
+def add_random_gaussian_edge_attr(tg_dataset, dim_features, random):
+    for tg_sample in tg_dataset:
+        num_edges = tg_sample.edge_index.shape[1]
+        tg_sample.edge_attr = torch.FloatTensor(random.normal(size=(num_edges, dim_features)))

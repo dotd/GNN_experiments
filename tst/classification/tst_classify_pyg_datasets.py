@@ -6,11 +6,13 @@ from torch_geometric.datasets import GNNBenchmarkDataset # noqa
 
 from tst.torch_geometric.tst_torch_geometric1 import GCN # noqa
 from tst.torch_geometric.tst_torch_geometric1 import train, func_test # noqa
+from src.utils.proxy_utils import set_proxy
 
 
-def test_classify_synthetic():
+def tst_classify_synthetic():
     print(f"{time.time() - start_time:.4f} tst_classify_synthetic")
     dataset_name = "MNIST"
+    set_proxy()
     train_dataset = GNNBenchmarkDataset(root="tst/gnn_benchmark_datasets", name=dataset_name)
     test_dataset = GNNBenchmarkDataset(root="tst/gnn_benchmark_datasets", name=dataset_name, split="test")
     dim_nodes = train_dataset.data.x.shape[1]
@@ -35,4 +37,4 @@ def test_classify_synthetic():
 
 if __name__ == "__main__":
     print(f"{time.time() - start_time:.4f} start time")
-    test_classify_synthetic()
+    tst_classify_synthetic()

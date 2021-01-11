@@ -2,16 +2,26 @@ import numpy as np
 import torch
 from torch_geometric.data import Data
 
-def get_edges_of_nodes(num_nodes, edges_list):
-    res = dict()
+def get_adjacent_edges_of_nodes(num_nodes, edge_index, edge_attr):
+    num_edges = edge_index.shape[1]
+    adjacent_nodes = dict()
+    adjacent_edges_features = dict()
+
+    # Initialization
     for i in range(num_nodes):
-        res[i] = set()
-    num_edges = edges_list.shape[1]
+        adjacent_nodes[i] = list()
+        adjacent_edges_features[i] = list()
+
+    # Doing the work: going for each edge and put it in the right map of edges and features
     for i in range(num_edges):
-        i0 = edges_list[0, i]
-        i1 = edges_list[1, i]
-        res[i0].add(i1)
-    return res
+        edge_from = edge_index[0, i].item()
+        edge_to = edge_index[1, i].item()
+        adjacent_nodes[edge_from].append(edge_to)
+        if edge_attr is not None:
+            edge_feature = edge_attr[i, :]
+            adjacent_edges_features[edge_from].append(edge_feature)
+
+    return adjacent_nodes, adjacent_edges_features
 
 
 def graph_prune_edges_by_minhash_lsh(graph_sample, minhash, lsh):
@@ -27,35 +37,64 @@ def graph_prune_edges_by_minhash_lsh(graph_sample, minhash, lsh):
 
 
 def _prune_edges_by_minhash_lsh_helper(num_nodes,
-                                       edges_list,
-                                       vectors,
+                                       edge_list,
+                                       edge_attr,
+                                       node_vectors,
                                        minhash,
                                        lsh):
-    new_edges = list()
+    # Num edges
+    num_edges = edge_list.shape[1]
+    # The pruned list of edges
+    new_edges_list = list()
+    new_attr_list = list()
 
-    node_to_nodes = get_edges_of_nodes(num_nodes, edges_list)
+    adjacent_nodes, adjacent_edges_features = get_adjacent_edges_of_nodes(num_nodes,
+                                                                          edge_list,
+                                                                          edge_attr)
     lsh_vectors = list()
     lsh_vectors_str = list()
     for n in range(num_nodes):
-        signature = lsh.sign_vector(vectors[n])
+        vector = node_vectors[n, :]
+        signature = lsh.sign_vector(vector)
         lsh_vectors.append(signature)
         lsh_vectors_str.append("".join(f"{x}" for x in signature))
 
     for n in range(num_nodes):
-        adjacent = list(node_to_nodes[n])
-        if len(adjacent) == 0:
-            continue
-        set_of_n = list()
-        rep2edge_number = dict()
-        for a in adjacent:
-            set_of_n.append(lsh_vectors_str[a])
-            rep2edge_number[lsh_vectors_str[a]] = a
-        vec, vec_vals, translation = minhash.apply(set_of_n)
-        for vec_val in vec_vals:
-            new_edges.append([n, rep2edge_number[vec_val]])
-    new_edges = np.array(new_edges).T
+        # Get all the adjacent nodes.
+        nodes = adjacent_nodes[n]
+        edge_attr = adjacent_edges_features[n]
 
-    return new_edges
+        # If no adjacent nodes, let's continue
+        if len(nodes) == 0:
+            continue
+
+        # Set of all adjacent nodes where we use the lsh representation for the set
+        adjacent_reps = list()
+        # This is an inverse map from representation string to adjacent node
+        rep_to_node_map = dict()
+        # This is an inverse map from representation string to adjacent edge attr
+        rep_to_attr_map = dict()
+
+        # Going over the adjacent for each node and make the mappings.
+        for idx in range(len(nodes)):
+            node = nodes[idx]
+            attr = edge_attr[idx]
+            adjacent_reps.append(lsh_vectors_str[node])
+            rep_to_node_map[lsh_vectors_str[node]] = node
+            rep_to_attr_map[lsh_vectors_str[node]] = attr
+        # Transform the adjacent nodes to their signatures
+        vec, vec_vals, translation = minhash.apply(adjacent_reps)
+        # The pruned list construction
+        for vec_val in vec_vals:
+            pruned_edge = [n, rep_to_node_map[vec_val]]
+            pruned_attr = rep_to_attr_map[vec_val]
+            new_edges_list.append(pruned_edge)
+            new_attr_list.append(pruned_attr)
+
+    # We return a numpy array
+    new_edges_torch = np.array(new_edges_list).T
+    new_attr_torch = torch.stack(new_attr_list, axis=0)
+    return new_edges_torch, new_attr_torch
 
 
 def dataset_prune_edges_by_minhash_lsh(graph_dataset, minhash, lsh):
@@ -65,19 +104,28 @@ def dataset_prune_edges_by_minhash_lsh(graph_dataset, minhash, lsh):
 
 
 def tg_sample_prune_edges_by_minhash_lsh(tg_sample, minhash, lsh):
-    old_edges = tg_sample.edge_index.numpy()
-    old_centers = tg_sample.x.numpy()
+    # Get the device so we know to where to device later
+    device = tg_sample.edge_index.get_device()
+
+    # Get the edges as torch and numpy
+    old_edge_index = tg_sample.edge_index
+    old_edge_attr = tg_sample.edge_attr
+
+    # Get node features and num of nodes.
     num_nodes = tg_sample.x.shape[0]
-    new_edges = _prune_edges_by_minhash_lsh_helper(num_nodes,
-                                       edges_list=old_edges,
-                                       vectors=old_centers,
-                                       minhash=minhash,
-                                       lsh=lsh)
-    new_edges_long = torch.LongTensor(new_edges)
-    tg_sample.edge_index = new_edges_long
+    old_x_numpy = tg_sample.x.numpy()
+
+    # Do the prunning
+    new_edges, new_attr = _prune_edges_by_minhash_lsh_helper(num_nodes,
+                                                             edge_list=old_edge_index,
+                                                             edge_attr=old_edge_attr,
+                                                             node_vectors=old_x_numpy,
+                                                             minhash=minhash,
+                                                             lsh=lsh)
+    tg_sample.edge_index = new_edges
+    tg_sample.edge_attr = new_attr
 
 
 def tg_dataset_prune_edges_by_minhash_lsh(tg_dataset, minhash, lsh):
     for i, tg_sample in enumerate(tg_dataset):
         tg_sample_prune_edges_by_minhash_lsh(tg_sample, minhash, lsh)
-

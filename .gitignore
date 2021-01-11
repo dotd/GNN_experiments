@@ -6,3 +6,4 @@ tst/ogb/dataset/
 data/
 data_fast/
 venv/
+tst/classification/tst/

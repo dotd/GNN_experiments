@@ -5,7 +5,7 @@ start_time = time.time()
 
 from torch_geometric.data import DataLoader
 
-from src.synthetic.random_graph_dataset import generate_graphs_dataset
+from src.synthetic.random_graph_dataset import generate_graphs_dataset, add_random_gaussian_edge_attr
 from tst.torch_geometric.tst_torch_geometric1 import GCN
 from src.synthetic.synthetic_utils import transform_dataset_to_torch_geometric_dataset
 from tst.torch_geometric.tst_torch_geometric1 import train, func_test
@@ -40,6 +40,8 @@ def tst_classify_synthetic(random=np.random.RandomState(0)):
     noise_remove_node = 0.1
     noise_add_node = 0.1
 
+    edge_attr_dim = 4
+
     graph_dataset = generate_graphs_dataset(num_samples=num_samples,
                                             num_classes=num_classes,
                                             min_nodes=min_nodes,
@@ -70,9 +72,16 @@ def tst_classify_synthetic(random=np.random.RandomState(0)):
     print(f"lsh:\n{lsh}")
 
     # (2) Do the prunning
-    # Prune
+    # Transform the dataset
     tg_dataset = transform_dataset_to_torch_geometric_dataset(graph_dataset.samples, graph_dataset.labels)
+
+    # Add random edge_attr
+    add_random_gaussian_edge_attr(tg_dataset, edge_attr_dim, random)
+
+    # Make a copy for comparison that the manipulation of the prunning worked.
     original_tg_dataset = copy.deepcopy(tg_dataset)
+
+    # Do the prune.
     tg_dataset_prune_edges_by_minhash_lsh(tg_dataset, minhash, lsh)
 
     for i in range(min(10,len(graph_dataset.samples))):

@@ -11,7 +11,7 @@ from src.synthetic.synthetic_utils import transform_dataset_to_torch_geometric_d
 from tst.torch_geometric.tst_torch_geometric1 import train, func_test
 
 
-from src.utils.graph_prune_utils import tg_dataset_prune_edges_by_minhash_lsh
+from src.utils.graph_prune_utils import tg_dataset_prune
 from src.utils.lsh_euclidean_tools import LSH
 from src.utils.minhash_tools import MinHash
 
@@ -82,7 +82,8 @@ def tst_classify_synthetic(random=np.random.RandomState(0)):
     original_tg_dataset = copy.deepcopy(tg_dataset)
 
     # Do the prune.
-    tg_dataset_prune_edges_by_minhash_lsh(tg_dataset, minhash, lsh)
+    # tg_dataset_prune(tg_dataset, "minhash_lsh", minhash=minhash, lsh=lsh)
+    tg_dataset_prune(tg_dataset, "random", p=0.3, random=random)
 
     for i in range(min(10,len(graph_dataset.samples))):
         print(f"{i}\npruned=\n{tg_dataset[i].edge_index}\noriginal=\n{original_tg_dataset[i].edge_index}")

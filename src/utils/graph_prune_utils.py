@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-
+from torch_geometric.data import Data
 
 def get_adjacent_edges_of_nodes(num_nodes, edge_index, edge_attr):
     num_edges = edge_index.shape[1]
@@ -92,7 +92,7 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
             new_attr_list.append(pruned_attr)
 
     # We return a numpy array
-    new_edges_torch = np.array(new_edges_list).T
+    new_edges_torch = torch.LongTensor(new_edges_list).T
     new_attr_torch = torch.stack(new_attr_list, axis=0)
     return new_edges_torch, new_attr_torch
 

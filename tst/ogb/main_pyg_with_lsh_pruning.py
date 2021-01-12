@@ -122,8 +122,10 @@ def main():
     test_data = list(dataset[split_idx["test"]])
 
     # orig_train_data_num_edges = train_data.data.edge_index.shape[1]
-
+    old_avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
     tg_dataset_prune_edges_by_minhash_lsh(train_data, minhash, lsh)
+    avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
+    print(f"Old average number of edges: {old_avg_edge_count}. New one: {avg_edge_count}. Change: {(old_avg_edge_count - avg_edge_count) / old_avg_edge_count * 100}\%")
     tg_dataset_prune_edges_by_minhash_lsh(validation_data, minhash, lsh)
     tg_dataset_prune_edges_by_minhash_lsh(test_data, minhash, lsh)
 

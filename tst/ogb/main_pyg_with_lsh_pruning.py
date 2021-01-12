@@ -14,7 +14,6 @@ from src.utils.minhash_tools import MinHash
 from src.utils.proxy_utils import set_proxy
 from tst.ogb.gcn import GCN
 
-
 cls_criterion = torch.nn.BCEWithLogitsLoss()
 
 
@@ -87,7 +86,8 @@ def main():
                         help='full feature or simple feature')
     parser.add_argument('--filename', type=str, default="",
                         help='filename to output result (default: )')
-    parser.add_argument('--proxy', action="store_true", default=False, help="Set proxy env. variables. Need in bosch networks.",)
+    parser.add_argument('--proxy', action="store_true", default=False,
+                        help="Set proxy env. variables. Need in bosch networks.", )
     args = parser.parse_args()
 
     device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
@@ -97,7 +97,7 @@ def main():
 
     rnd = np.random.RandomState(0)
     # MinHash parameters
-    num_minhash_funcs = 2
+    num_minhash_funcs = 1
     minhash = MinHash(num_minhash_funcs, rnd, prime=2147483647)
     print(f"minhash:\n{minhash}")
 
@@ -113,7 +113,6 @@ def main():
               random=rnd)
     print(f"lsh:\n{lsh}")
 
-
     # automatic data loading and splitting
     dataset = PygGraphPropPredDataset(name=args.dataset)
     split_idx = dataset.get_idx_split()
@@ -125,12 +124,10 @@ def main():
     old_avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
     tg_dataset_prune_edges_by_minhash_lsh(train_data, minhash, lsh)
     avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
-    print(f"Old average number of edges: {old_avg_edge_count}. New one: {avg_edge_count}. Change: {(old_avg_edge_count - avg_edge_count) / old_avg_edge_count * 100}\%")
+    print(
+        f"Old average number of edges: {old_avg_edge_count}. New one: {avg_edge_count}. Change: {(old_avg_edge_count - avg_edge_count) / old_avg_edge_count * 100}\%")
     tg_dataset_prune_edges_by_minhash_lsh(validation_data, minhash, lsh)
     tg_dataset_prune_edges_by_minhash_lsh(test_data, minhash, lsh)
-
-    # pruned_train_data_num_edges = train_data.data.edge_index.shape[1]
-    # print(f"Original num of edges in train set: {orig_train_data_num_edges}, after pruning: {pruned_train_data_num_edges}")
 
     if args.feature == 'full':
         pass
@@ -139,8 +136,6 @@ def main():
         # only retain the top two node/edge features
         dataset.data.x = dataset.data.x[:, :2]
         dataset.data.edge_attr = dataset.data.edge_attr[:, :2]
-
-
 
     # automatic evaluator. takes dataset name as input
     evaluator = Evaluator(args.dataset)

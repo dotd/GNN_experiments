@@ -1,21 +1,23 @@
 import argparse
+from functools import partial
+from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.optim as optim
-# importing OGB
-from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
 from torch_geometric.data import DataLoader
+from torchvision import transforms
 from tqdm import tqdm
 
+from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
+from ogb.graphproppred.mol_encoder import AtomEncoder, BondEncoder
 from src.utils.proxy_utils import set_proxy
+from tst.ogb.encoder_utils import ASTNodeEncoder, get_vocab_mapping, augment_edge, encode_y_to_arr
 from tst.ogb.gcn import GCN
 
 
-cls_criterion = torch.nn.BCEWithLogitsLoss()
-
-
-def train(model, device, loader, optimizer):
+def train(model, device, loader, optimizer, cls_criterion):
     model.train()
 
     for step, batch in enumerate(tqdm(loader, desc="Iteration")):
@@ -26,9 +28,21 @@ def train(model, device, loader, optimizer):
         else:
             pred = model(batch)
             optimizer.zero_grad()
-            # ignore nan targets (unlabeled) when computing training loss.
-            is_labeled = batch.y == batch.y
-            loss = cls_criterion(pred.to(torch.float32)[is_labeled], batch.y.to(torch.float32)[is_labeled])
+
+            # Treat single label and multi-label data differently.
+
+            if hasattr(batch, 'y_arr'):
+                loss = 0
+                for i in range(len(pred)):
+                    loss += cls_criterion(pred[i].to(torch.float32), batch.y_arr[:, i])
+                loss = loss / len(pred)
+            elif hasattr(batch, 'y'):
+                # ignore nan targets (unlabeled) when computing training loss.
+                is_labeled = batch.y == batch.y
+                loss = cls_criterion(pred.to(torch.float32)[is_labeled], batch.y.to(torch.float32)[is_labeled])
+            else:
+                raise AttributeError("Batch does not contain either a y-member or a y_arr-member")
+
             loss.backward()
             optimizer.step()
 
@@ -58,6 +72,32 @@ def evaluate(model, device, loader, evaluator):
     return evaluator.eval(input_dict)
 
 
+def create_model(dataset: PygGraphPropPredDataset, emb_dim: int, dropout_ratio: float, device: str, num_layers: int,
+                 max_seq_len: int, num_vocab: int):
+    if dataset.name == "ogbg-molhiv":
+        node_encoder = AtomEncoder(emb_dim=emb_dim)
+        edge_encoder_constrtuctor = BondEncoder
+        model = GCN(num_classes=dataset.num_tasks, num_layer=num_layers,
+                    emb_dim=emb_dim, drop_ratio=dropout_ratio,
+                    node_encoder=node_encoder, edge_encoder_ctor=edge_encoder_constrtuctor).to(device)
+
+    elif dataset.name == "ogbg-code":
+        nodetypes_mapping = pd.read_csv(Path(dataset.root) / 'mapping' / 'typeidx2type.csv.gz')
+        nodeattributes_mapping = pd.read_csv(Path(dataset.root) / 'mapping' / 'attridx2attr.csv.gz')
+        node_encoder = ASTNodeEncoder(emb_dim, num_nodetypes=len(nodetypes_mapping['type']),
+                                      num_nodeattributes=len(nodeattributes_mapping['attr']), max_depth=20)
+        split_idx = dataset.get_idx_split()
+        vocab2idx, idx2vocab = get_vocab_mapping([dataset.data.y[i] for i in split_idx['train']], num_vocab)
+        edge_encoder_ctor = partial(torch.nn.Linear, 2)
+        model = GCN(num_classes=len(vocab2idx), max_seq_len=max_seq_len, node_encoder=node_encoder,
+                    edge_encoder_ctor=edge_encoder_ctor, num_layer=num_layers, emb_dim=emb_dim,
+                    drop_ratio=dropout_ratio).to(device)
+
+    else:
+        raise ValueError("Used an invalid dataset name")
+    return model
+
+
 def main():
     # Training settings
     parser = argparse.ArgumentParser(description='GNN baselines on ogbgmol* data with Pytorch Geometrics')
@@ -79,12 +119,18 @@ def main():
                         help='number of workers (default: 0)')
     parser.add_argument('--dataset', type=str, default="ogbg-molhiv",
                         help='dataset name (default: ogbg-molhiv)')
-
     parser.add_argument('--feature', type=str, default="full",
                         help='full feature or simple feature')
     parser.add_argument('--filename', type=str, default="",
                         help='filename to output result (default: )')
-    parser.add_argument('--proxy', action="store_true", default=False, help="Set proxy env. variables. Need in bosch networks.",)
+    parser.add_argument('--proxy', action="store_true", default=False,
+                        help="Set proxy env. variables. Need in bosch networks.", )
+    # dataset specific params:
+    parser.add_argument('--max_seq_len', type=int, default=5,
+                        help='Maximum sequence length to predict -- for ogbgb-code (default: 5)')
+    parser.add_argument('--num_vocab', type=int, default=5000,
+                        help='The number of vocabulary used for sequence prediction (default: 5000)')
+
     args = parser.parse_args()
 
     device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
@@ -105,6 +151,14 @@ def main():
 
     split_idx = dataset.get_idx_split()
 
+    cls_criterion = torch.nn.BCEWithLogitsLoss()
+    # specific transformations for the ogbg-code dataset
+    if args.dataset == 'ogbg-code':
+        vocab2idx, idx2vocab = get_vocab_mapping([dataset.data.y[i] for i in split_idx['train']], args.num_vocab)
+        dataset.transform = transforms.Compose(
+            [augment_edge, lambda data: encode_y_to_arr(data, vocab2idx, args.max_seq_len)])
+        cls_criterion = torch.nn.CrossEntropyLoss()
+
     # automatic evaluator. takes dataset name as input
     evaluator = Evaluator(args.dataset)
 
@@ -115,8 +169,10 @@ def main():
     test_loader = DataLoader(dataset[split_idx["test"]], batch_size=args.batch_size, shuffle=False,
                              num_workers=args.num_workers)
 
-    model = GCN(num_tasks=dataset.num_tasks, num_layer=args.num_layer,
-                emb_dim=args.emb_dim, drop_ratio=args.drop_ratio).to(device)
+    # original
+    model = create_model(dataset=dataset, emb_dim=args.emb_dim,
+                         dropout_ratio=args.drop_ratio, device=device, num_layers=args.num_layer,
+                         max_seq_len=args.max_seq_len, num_vocab=args.num_vocab)
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
@@ -125,9 +181,9 @@ def main():
     train_curve = []
 
     for epoch in range(1, args.epochs + 1):
-        print(f"=====Epoch {epoch}")
+        print(f'=====Epoch {epoch}')
         print('Training...')
-        train(model, device, train_loader, optimizer)
+        train(model, device, train_loader, optimizer, cls_criterion=cls_criterion)
 
         print('Evaluating...')
         train_perf = evaluate(model, device, train_loader, evaluator)

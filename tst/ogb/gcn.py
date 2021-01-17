@@ -1,16 +1,14 @@
 import torch
-from .conv import GNN_node
 from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool, GlobalAttention, Set2Set
+
+from .conv import GNN_node
 
 
 class GCN(torch.nn.Module):
 
-    def __init__(self, num_tasks, num_layer=5, emb_dim=300,
-                 residual=False, drop_ratio=0.5, JK="last", graph_pooling="mean"):
-        """
-            num_tasks (int): number of labels to be predicted
-            virtual_node (bool): whether to add virtual node or not
-        """
+    def __init__(self, num_classes: int, num_layer=5, emb_dim=300, node_encoder=None,
+                 edge_encoder_ctor: torch.nn.Module = None,
+                 residual=False, drop_ratio=0.5, JK="last", graph_pooling="mean", max_seq_len=1):
 
         super(GCN, self).__init__()
 
@@ -18,14 +16,17 @@ class GCN(torch.nn.Module):
         self.drop_ratio = drop_ratio
         self.JK = JK
         self.emb_dim = emb_dim
-        self.num_tasks = num_tasks
         self.graph_pooling = graph_pooling
+        self.max_seq_len = max_seq_len
+        self.num_classes = num_classes
 
         if self.num_layer < 2:
             raise ValueError("Number of GNN layers must be greater than 1.")
 
         # GNN to generate node embeddings
-        self.gnn_node = GNN_node(num_layer, emb_dim=emb_dim, JK=JK, drop_ratio=drop_ratio, residual=residual)
+        self.gnn_node = GNN_node(num_layer, emb_dim=emb_dim, JK=JK, node_encoder=node_encoder,
+                                 edge_encoder_ctor=edge_encoder_ctor, drop_ratio=drop_ratio,
+                                 residual=residual)
 
         # Pooling function to generate whole-graph embeddings
         if self.graph_pooling == "sum":
@@ -43,14 +44,16 @@ class GCN(torch.nn.Module):
         else:
             raise ValueError("Invalid graph pooling type.")
 
-        if graph_pooling == "set2set":
-            self.graph_pred_linear = torch.nn.Linear(2 * self.emb_dim, self.num_tasks)
-        else:
-            self.graph_pred_linear = torch.nn.Linear(self.emb_dim, self.num_tasks)
+        self.graph_pred_linear_list = torch.nn.ModuleList()
+        for i in range(max_seq_len):
+            self.graph_pred_linear_list.append(torch.nn.Linear(emb_dim, self.num_classes))
 
     def forward(self, batched_data):
         h_node = self.gnn_node(batched_data)
-
         h_graph = self.pool(h_node, batched_data.batch)
 
-        return self.graph_pred_linear(h_graph)
+        pred_list = []
+        for i in range(self.max_seq_len):
+            pred_list.append(self.graph_pred_linear_list[i](h_graph))
+        preds = pred_list[0] if self.max_seq_len == 1 else pred_list
+        return preds

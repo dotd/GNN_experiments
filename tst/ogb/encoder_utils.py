@@ -178,3 +178,19 @@ def decode_arr_to_seq(arr, idx2vocab):
         clippted_arr = arr
 
     return list(map(lambda x: idx2vocab[x], clippted_arr.cpu()))
+
+
+def decode_arr_to_seq(arr, idx2vocab):
+    """
+        Input: torch 1d array: y_arr
+        Output: a sequence of words.
+    """
+
+    eos_idx_list = (arr == len(idx2vocab) - 1).nonzero()  # find the position of __EOS__ (the last vocab in idx2vocab)
+    if len(eos_idx_list) > 0:
+        # find the smallest __EOS__
+        clippted_arr = arr[: torch.min(eos_idx_list)]
+    else:
+        clippted_arr = arr
+
+    return list(map(lambda x: idx2vocab[x], clippted_arr.cpu()))

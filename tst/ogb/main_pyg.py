@@ -13,7 +13,7 @@ from tqdm import tqdm
 from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
 from ogb.graphproppred.mol_encoder import AtomEncoder, BondEncoder
 from src.utils.proxy_utils import set_proxy
-from tst.ogb.encoder_utils import ASTNodeEncoder, get_vocab_mapping, augment_edge, encode_y_to_arr
+from tst.ogb.encoder_utils import ASTNodeEncoder, augment_edge, decode_arr_to_seq, encode_y_to_arr, get_vocab_mapping
 from tst.ogb.gcn import GCN
 
 
@@ -47,7 +47,7 @@ def train(model, device, loader, optimizer, cls_criterion):
             optimizer.step()
 
 
-def evaluate(model, device, loader, evaluator):
+def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str):
     model.eval()
     y_true = []
     y_pred = []
@@ -61,13 +61,27 @@ def evaluate(model, device, loader, evaluator):
             with torch.no_grad():
                 pred = model(batch)
 
-            y_true.append(batch.y.view(pred.shape).detach().cpu())
-            y_pred.append(pred.detach().cpu())
+            if dataset_name == 'ogbg-code':
+                mat = []
+                for i in range(len(pred)):
+                    mat.append(torch.argmax(pred[i], dim=1).view(-1, 1))
+                mat = torch.cat(mat, dim=1)
+                seq_pred = [arr_to_seq(arr) for arr in mat]
+                seq_ref = [batch.y[i] for i in range(len(batch.y))]
+                y_true.extend(seq_ref)
+                y_pred.extend(seq_pred)
+            elif dataset_name == 'ogbg-molhiv':
+                y_true.append(batch.y.view(pred.shape).detach().cpu())
+                y_pred.append(pred.detach().cpu())
+            else:
+                raise AttributeError("Batch does not contain either a y-member or a y_arr-member")
 
-    y_true = torch.cat(y_true, dim=0).numpy()
-    y_pred = torch.cat(y_pred, dim=0).numpy()
-
-    input_dict = {"y_true": y_true, "y_pred": y_pred}
+    if dataset_name == 'ogbg-code':
+        input_dict = {"seq_ref": y_true, "seq_pred": y_pred}
+    elif dataset_name == 'ogbg-molhiv':
+        y_true = torch.cat(y_true, dim=0).numpy()
+        y_pred = torch.cat(y_pred, dim=0).numpy()
+        input_dict = {"y_true": y_true, "y_pred": y_pred}
 
     return evaluator.eval(input_dict)
 
@@ -155,12 +169,15 @@ def main():
     split_idx = dataset.get_idx_split()
 
     cls_criterion = torch.nn.BCEWithLogitsLoss()
+    # The following is only used in the evaluation of the ogbg-code classifier.
+    idx2word_mapper = None
     # specific transformations for the ogbg-code dataset
     if args.dataset == 'ogbg-code':
         vocab2idx, idx2vocab = get_vocab_mapping([dataset.data.y[i] for i in split_idx['train']], args.num_vocab)
         dataset.transform = transforms.Compose(
             [augment_edge, lambda data: encode_y_to_arr(data, vocab2idx, args.max_seq_len)])
         cls_criterion = torch.nn.CrossEntropyLoss()
+        idx2word_mapper = partial(decode_arr_to_seq, idx2vocab=idx2vocab)
 
     # automatic evaluator. takes dataset name as input
     evaluator = Evaluator(args.dataset)
@@ -189,9 +206,12 @@ def main():
         train(model, device, train_loader, optimizer, cls_criterion=cls_criterion)
 
         print('Evaluating...')
-        train_perf = evaluate(model, device, train_loader, evaluator)
-        valid_perf = evaluate(model, device, valid_loader, evaluator)
-        test_perf = evaluate(model, device, test_loader, evaluator)
+        train_perf = evaluate(model=model, device=device, loader=train_loader, evaluator=evaluator,
+                              arr_to_seq=idx2word_mapper, dataset_name=args.dataset)
+        valid_perf = evaluate(model=model, device=device, loader=valid_loader, evaluator=evaluator,
+                              arr_to_seq=idx2word_mapper, dataset_name=args.dataset)
+        test_perf = evaluate(model=model, device=device, loader=test_loader, evaluator=evaluator,
+                             arr_to_seq=idx2word_mapper, dataset_name=args.dataset)
 
         print({'Train': train_perf, 'Validation': valid_perf, 'Test': test_perf})
 

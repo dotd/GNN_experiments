@@ -74,9 +74,11 @@ def evaluate(model, device, loader, evaluator):
 
 def create_model(dataset: PygGraphPropPredDataset, emb_dim: int, dropout_ratio: float, device: str, num_layers: int,
                  max_seq_len: int, num_vocab: int):
+    print("creating a model for ", dataset.name)
     if dataset.name == "ogbg-molhiv":
         node_encoder = AtomEncoder(emb_dim=emb_dim)
         edge_encoder_constrtuctor = BondEncoder
+        print("Number of classes: ", dataset.num_tasks)
         model = GCN(num_classes=dataset.num_tasks, num_layer=num_layers,
                     emb_dim=emb_dim, drop_ratio=dropout_ratio,
                     node_encoder=node_encoder, edge_encoder_ctor=edge_encoder_constrtuctor).to(device)
@@ -89,6 +91,7 @@ def create_model(dataset: PygGraphPropPredDataset, emb_dim: int, dropout_ratio: 
         split_idx = dataset.get_idx_split()
         vocab2idx, idx2vocab = get_vocab_mapping([dataset.data.y[i] for i in split_idx['train']], num_vocab)
         edge_encoder_ctor = partial(torch.nn.Linear, 2)
+        print(f"Multiclassification with {len(vocab2idx)} classes. Num labels per example: {max_seq_len}")
         model = GCN(num_classes=len(vocab2idx), max_seq_len=max_seq_len, node_encoder=node_encoder,
                     edge_encoder_ctor=edge_encoder_ctor, num_layer=num_layers, emb_dim=emb_dim,
                     drop_ratio=dropout_ratio).to(device)

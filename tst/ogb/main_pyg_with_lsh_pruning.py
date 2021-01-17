@@ -190,8 +190,8 @@ def main():
         best_train = min(train_curve)
 
     print('Finished training!')
-    print('Best validation score: {valid_curve[best_val_epoch]}')
-    print(f'Test score: {test_curve[best_val_epoch]}')
+    print(f'Best validation score: {valid_curve[best_val_epoch]}')
+    print(f'Test score in max-validation score epoch: {test_curve[best_val_epoch]}')
 
     if not args.filename == '':
         torch.save({'Val': valid_curve[best_val_epoch], 'Test': test_curve[best_val_epoch],

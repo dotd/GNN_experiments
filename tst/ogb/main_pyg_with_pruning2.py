@@ -193,15 +193,23 @@ def main():
     # Get pruning arguments
     prune_args = get_prune_args(pruning_method=args.pruning_method, num_minhash_funcs=args.num_minhash_funcs,
                                 random_pruning_prob=args.random_pruning_prob)
-    # automatic data loading and splitting
+
     # automatic data loading and splitting
     dataset = PygGraphPropPredDataset(name=args.dataset)
+    cls_criterion = torch.nn.CrossEntropyLoss() if args.dataset == 'ogbg-code' else torch.nn.BCEWithLogitsLoss()
+    idx2word_mapper = None
     split_idx = dataset.get_idx_split()
+    # The following is only used in the evaluation of the ogbg-code classifier.
+    if args.dataset == 'ogbg-code':
+        vocab2idx, idx2vocab = get_vocab_mapping([dataset.data.y[i] for i in split_idx['train']], args.num_vocab)
+        # specific transformations for the ogbg-code dataset
+        dataset.transform = transforms.Compose(
+            [augment_edge, lambda data: encode_y_to_arr(data, vocab2idx, args.max_seq_len)])
+        idx2word_mapper = partial(decode_arr_to_seq, idx2vocab=idx2vocab)
+
     train_data = list(dataset[split_idx["train"]])
     validation_data = list(dataset[split_idx["valid"]])
     test_data = list(dataset[split_idx["test"]])
-
-    # orig_train_data_num_edges = train_data.data.edge_index.shape[1]
     old_avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
     tg_dataset_prune(train_data, args.pruning_method, **prune_args)
     avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
@@ -223,17 +231,6 @@ def main():
         # only retain the top two node/edge features
         dataset.data.x = dataset.data.x[:, :2]
         dataset.data.edge_attr = dataset.data.edge_attr[:, :2]
-
-    cls_criterion = torch.nn.BCEWithLogitsLoss()
-    idx2word_mapper = None
-    # The following is only used in the evaluation of the ogbg-code classifier.
-    if args.dataset == 'ogbg-code':
-        vocab2idx, idx2vocab = get_vocab_mapping([dataset.data.y[i] for i in split_idx['train']], args.num_vocab)
-        # specific transformations for the ogbg-code dataset
-        dataset.transform = transforms.Compose(
-            [augment_edge, lambda data: encode_y_to_arr(data, vocab2idx, args.max_seq_len)])
-        cls_criterion = torch.nn.CrossEntropyLoss()
-        idx2word_mapper = partial(decode_arr_to_seq, idx2vocab=idx2vocab)
 
     evaluator = Evaluator(args.dataset)
     model = create_model(dataset=dataset, emb_dim=args.emb_dim,

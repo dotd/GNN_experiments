@@ -1,3 +1,5 @@
+from time import time
+
 import argparse
 from functools import partial
 from pathlib import Path
@@ -119,7 +121,7 @@ def create_model(dataset: PygGraphPropPredDataset, emb_dim: int, dropout_ratio: 
     return model
 
 
-def get_prune_args(pruning_method: str, num_minhash_funcs: int, random_pruning_prob: float) -> Dict:
+def get_prune_args(pruning_method: str, num_minhash_funcs: int, random_pruning_prob: float, node_dim: int) -> Dict:
     rnd = np.random.RandomState(0)
     if pruning_method == "minhash_lsh":
         minhash = MinHash(num_minhash_funcs, rnd, prime=2147483647)
@@ -129,8 +131,7 @@ def get_prune_args(pruning_method: str, num_minhash_funcs: int, random_pruning_p
         lsh_num_funcs = 2
         sparsity = 3
         std_of_threshold = 1
-        dim_nodes = 9
-        lsh = LSH(dim_nodes,
+        lsh = LSH(node_dim,
                   num_functions=lsh_num_funcs,
                   sparsity=sparsity,
                   std_of_threshold=std_of_threshold,
@@ -146,6 +147,7 @@ def get_prune_args(pruning_method: str, num_minhash_funcs: int, random_pruning_p
 
 
 def main():
+    start_time = time()
     # Training settings
     parser = argparse.ArgumentParser(description='GNN baselines on ogbgmol* data with Pytorch Geometrics')
     parser.add_argument('--device', type=int, default=0,
@@ -190,10 +192,6 @@ def main():
     if args.proxy:
         set_proxy()
 
-    # Get pruning arguments
-    prune_args = get_prune_args(pruning_method=args.pruning_method, num_minhash_funcs=args.num_minhash_funcs,
-                                random_pruning_prob=args.random_pruning_prob)
-
     # automatic data loading and splitting
     dataset = PygGraphPropPredDataset(name=args.dataset)
     cls_criterion = torch.nn.CrossEntropyLoss() if args.dataset == 'ogbg-code' else torch.nn.BCEWithLogitsLoss()
@@ -206,6 +204,10 @@ def main():
         dataset.transform = transforms.Compose(
             [augment_edge, lambda data: encode_y_to_arr(data, vocab2idx, args.max_seq_len)])
         idx2word_mapper = partial(decode_arr_to_seq, idx2vocab=idx2vocab)
+
+    # Get pruning arguments
+    prune_args = get_prune_args(pruning_method=args.pruning_method, num_minhash_funcs=args.num_minhash_funcs,
+                                random_pruning_prob=args.random_pruning_prob, node_dim=dataset[0].x.shape[1])
 
     train_data = list(dataset[split_idx["train"]])
     validation_data = list(dataset[split_idx["valid"]])
@@ -263,7 +265,8 @@ def main():
 
     best_val_epoch = np.argmax(np.array(valid_curve)).item()
     best_train = max(train_curve)
-    print('Finished training!')
+    finish_time = time()
+    print(f'Finished training! Elapsed time: {(finish_time - start_time) / 60} minutes')
     print('Best validation score: {}'.format(valid_curve[best_val_epoch]))
     print('Test score: {}'.format(test_curve[best_val_epoch]))
 

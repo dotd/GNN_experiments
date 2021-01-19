@@ -261,16 +261,11 @@ def main():
         valid_curve.append(valid_perf[dataset.eval_metric])
         test_curve.append(test_perf[dataset.eval_metric])
 
-    if 'classification' in dataset.task_type:
-        best_val_epoch = np.argmax(np.array(valid_curve))
-        best_train = max(train_curve)
-    else:
-        best_val_epoch = np.argmin(np.array(valid_curve))
-        best_train = min(train_curve)
-
+    best_val_epoch = np.argmax(np.array(valid_curve)).item()
+    best_train = max(train_curve)
     print('Finished training!')
-    print('Best validation score: {valid_curve[best_val_epoch]}')
-    print(f'Test score: {test_curve[best_val_epoch]}')
+    print('Best validation score: {}'.format(valid_curve[best_val_epoch]))
+    print('Test score: {}'.format(test_curve[best_val_epoch]))
 
     if not args.filename == '':
         torch.save({'Val': valid_curve[best_val_epoch], 'Test': test_curve[best_val_epoch],

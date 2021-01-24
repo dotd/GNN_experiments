@@ -14,7 +14,7 @@ from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
 from ogb.graphproppred.mol_encoder import AtomEncoder, BondEncoder
 from src.utils.proxy_utils import set_proxy
 from tst.ogb.encoder_utils import ASTNodeEncoder, augment_edge, decode_arr_to_seq, encode_y_to_arr, get_vocab_mapping
-from tst.ogb.gcn import GCN
+from tst.ogb.model_and_data_utils import add_zeros, create_model
 
 
 def train(model, device, loader, optimizer, cls_criterion):
@@ -86,35 +86,6 @@ def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str):
     return evaluator.eval(input_dict)
 
 
-def create_model(dataset: PygGraphPropPredDataset, emb_dim: int, dropout_ratio: float, device: str, num_layers: int,
-                 max_seq_len: int, num_vocab: int):
-    print("creating a model for ", dataset.name)
-    if dataset.name == "ogbg-molhiv":
-        node_encoder = AtomEncoder(emb_dim=emb_dim)
-        edge_encoder_constrtuctor = BondEncoder
-        print("Number of classes: ", dataset.num_tasks)
-        model = GCN(num_classes=dataset.num_tasks, num_layer=num_layers,
-                    emb_dim=emb_dim, drop_ratio=dropout_ratio,
-                    node_encoder=node_encoder, edge_encoder_ctor=edge_encoder_constrtuctor).to(device)
-
-    elif dataset.name == "ogbg-code":
-        nodetypes_mapping = pd.read_csv(Path(dataset.root) / 'mapping' / 'typeidx2type.csv.gz')
-        nodeattributes_mapping = pd.read_csv(Path(dataset.root) / 'mapping' / 'attridx2attr.csv.gz')
-        node_encoder = ASTNodeEncoder(emb_dim, num_nodetypes=len(nodetypes_mapping['type']),
-                                      num_nodeattributes=len(nodeattributes_mapping['attr']), max_depth=20)
-        split_idx = dataset.get_idx_split()
-        vocab2idx, idx2vocab = get_vocab_mapping([dataset.data.y[i] for i in split_idx['train']], num_vocab)
-        edge_encoder_ctor = partial(torch.nn.Linear, 2)
-        print(f"Multiclassification with {len(vocab2idx)} classes. Num labels per example: {max_seq_len}")
-        model = GCN(num_classes=len(vocab2idx), max_seq_len=max_seq_len, node_encoder=node_encoder,
-                    edge_encoder_ctor=edge_encoder_ctor, num_layer=num_layers, emb_dim=emb_dim,
-                    drop_ratio=dropout_ratio).to(device)
-
-    else:
-        raise ValueError("Used an invalid dataset name")
-    return model
-
-
 def main():
     # Training settings
     parser = argparse.ArgumentParser(description='GNN baselines on ogbgmol* data with Pytorch Geometrics')
@@ -156,8 +127,9 @@ def main():
         set_proxy()
 
     # automatic data loading and splitting
-    dataset = PygGraphPropPredDataset(name=args.dataset)
-
+    transform = add_zeros if args.dataset == 'ogbg-ppa' else None
+    dataset = PygGraphPropPredDataset(name=args.dataset, transform=transform)
+    print(f"DEBUG: Loaded the dataset: {dataset.name}")
     if args.feature == 'full':
         pass
     elif args.feature == 'simple':

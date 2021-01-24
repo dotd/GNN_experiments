@@ -163,7 +163,7 @@ def main():
     # automatic data loading and splitting
     transform = add_zeros if args.dataset == 'ogbg-ppa' else None
     dataset = PygGraphPropPredDataset(name=args.dataset, transform=transform)
-    cls_criterion = torch.nn.CrossEntropyLoss() if args.dataset == 'ogbg-code' else torch.nn.BCEWithLogitsLoss()
+    cls_criterion = torch.nn.CrossEntropyLoss() if args.dataset in ['ogbg-code', 'ogbg-ppa'] else torch.nn.BCEWithLogitsLoss()
     idx2word_mapper = None
     split_idx = dataset.get_idx_split()
     # The following is only used in the evaluation of the ogbg-code classifier.

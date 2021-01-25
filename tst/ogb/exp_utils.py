@@ -56,9 +56,12 @@ def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str):
                 seq_ref = [batch.y[i] for i in range(len(batch.y))]
                 y_true.extend(seq_ref)
                 y_pred.extend(seq_pred)
-            elif dataset_name in ['ogbg-molhiv', 'ogbg-ppa']:
+            elif dataset_name == 'ogbg-molhiv':
                 y_true.append(batch.y.view(pred.shape).detach().cpu())
                 y_pred.append(pred.detach().cpu())
+            elif dataset_name == 'ogbg-ppa':
+                y_true.append(batch.y.view(-1, 1).detach().cpu())
+                y_pred.append(torch.argmax(pred.detach(), dim=1).view(-1, 1).cpu())
             else:
                 raise AttributeError("Batch does not contain either a y-member or a y_arr-member")
 

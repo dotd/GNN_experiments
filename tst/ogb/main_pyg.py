@@ -61,6 +61,7 @@ def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str):
             with torch.no_grad():
                 pred = model(batch)
 
+            # ogbg-code is a multi-labelling task, so it needs to be treated diffrerently
             if dataset_name == 'ogbg-code':
                 mat = []
                 for i in range(len(pred)):
@@ -70,7 +71,7 @@ def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str):
                 seq_ref = [batch.y[i] for i in range(len(batch.y))]
                 y_true.extend(seq_ref)
                 y_pred.extend(seq_pred)
-            elif dataset_name == 'ogbg-molhiv':
+            elif dataset_name in ['ogbg-molhiv', 'ogbg-ppa']:
                 y_true.append(batch.y.view(pred.shape).detach().cpu())
                 y_pred.append(pred.detach().cpu())
             else:

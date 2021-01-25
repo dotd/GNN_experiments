@@ -1,90 +1,17 @@
 import argparse
 from functools import partial
-from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.optim as optim
 from torch_geometric.data import DataLoader
 from torchvision import transforms
-from tqdm import tqdm
 
 from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
-from ogb.graphproppred.mol_encoder import AtomEncoder, BondEncoder
 from src.utils.proxy_utils import set_proxy
-from tst.ogb.encoder_utils import ASTNodeEncoder, augment_edge, decode_arr_to_seq, encode_y_to_arr, get_vocab_mapping
+from tst.ogb.encoder_utils import augment_edge, decode_arr_to_seq, encode_y_to_arr, get_vocab_mapping
+from tst.ogb.exp_utils import train, evaluate
 from tst.ogb.model_and_data_utils import add_zeros, create_model
-
-
-def train(model, device, loader, optimizer, cls_criterion):
-    model.train()
-
-    for step, batch in enumerate(tqdm(loader, desc="Iteration")):
-        batch = batch.to(device)
-
-        if batch.x.shape[0] == 1 or batch.batch[-1] == 0:
-            pass
-        else:
-            pred = model(batch)
-            optimizer.zero_grad()
-
-            # Treat single label and multi-label data differently.
-
-            if hasattr(batch, 'y_arr'):
-                loss = 0
-                for i in range(len(pred)):
-                    loss += cls_criterion(pred[i].to(torch.float32), batch.y_arr[:, i])
-                loss = loss / len(pred)
-            elif hasattr(batch, 'y'):
-                # ignore nan targets (unlabeled) when computing training loss.
-                is_labeled = batch.y == batch.y
-                loss = cls_criterion(pred.to(torch.float32)[is_labeled], batch.y.to(torch.float32)[is_labeled])
-            else:
-                raise AttributeError("Batch does not contain either a y-member or a y_arr-member")
-
-            loss.backward()
-            optimizer.step()
-
-
-def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str):
-    model.eval()
-    y_true = []
-    y_pred = []
-
-    for step, batch in enumerate(tqdm(loader, desc="Iteration")):
-        batch = batch.to(device)
-
-        if batch.x.shape[0] == 1:
-            pass
-        else:
-            with torch.no_grad():
-                pred = model(batch)
-
-            # ogbg-code is a multi-labelling task, so it needs to be treated diffrerently
-            if dataset_name == 'ogbg-code':
-                mat = []
-                for i in range(len(pred)):
-                    mat.append(torch.argmax(pred[i], dim=1).view(-1, 1))
-                mat = torch.cat(mat, dim=1)
-                seq_pred = [arr_to_seq(arr) for arr in mat]
-                seq_ref = [batch.y[i] for i in range(len(batch.y))]
-                y_true.extend(seq_ref)
-                y_pred.extend(seq_pred)
-            elif dataset_name in ['ogbg-molhiv', 'ogbg-ppa']:
-                y_true.append(batch.y.view(pred.shape).detach().cpu())
-                y_pred.append(pred.detach().cpu())
-            else:
-                raise AttributeError("Batch does not contain either a y-member or a y_arr-member")
-
-    if dataset_name == 'ogbg-code':
-        input_dict = {"seq_ref": y_true, "seq_pred": y_pred}
-    elif dataset_name == 'ogbg-molhiv':
-        y_true = torch.cat(y_true, dim=0).numpy()
-        y_pred = torch.cat(y_pred, dim=0).numpy()
-        input_dict = {"y_true": y_true, "y_pred": y_pred}
-
-    return evaluator.eval(input_dict)
 
 
 def main():

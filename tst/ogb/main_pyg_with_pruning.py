@@ -18,7 +18,7 @@ from src.utils.lsh_euclidean_tools import LSH
 from src.utils.minhash_tools import MinHash
 from src.utils.proxy_utils import set_proxy
 from tst.ogb.encoder_utils import augment_edge, decode_arr_to_seq, encode_y_to_arr, get_vocab_mapping
-from tst.ogb.exp_utils import train, evaluate
+from tst.ogb.exp_utils import get_loss_function, evaluate, train
 from tst.ogb.model_and_data_utils import add_zeros, create_model
 
 
@@ -96,7 +96,7 @@ def main():
     # automatic data loading and splitting
     transform = add_zeros if args.dataset == 'ogbg-ppa' else None
     dataset = PygGraphPropPredDataset(name=args.dataset, transform=transform)
-    cls_criterion = torch.nn.CrossEntropyLoss() if args.dataset in ['ogbg-code', 'ogbg-ppa'] else torch.nn.BCEWithLogitsLoss()
+    cls_criterion = get_loss_function(dataset.name)
     idx2word_mapper = None
     split_idx = dataset.get_idx_split()
     # The following is only used in the evaluation of the ogbg-code classifier.

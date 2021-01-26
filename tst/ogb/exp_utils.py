@@ -73,3 +73,14 @@ def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str):
         input_dict = {"y_true": y_true, "y_pred": y_pred}
 
     return evaluator.eval(input_dict)
+
+
+def get_loss_function(dataset_name: str):
+    loss = None
+    if dataset_name == 'ogbg-molhiv':
+        loss = torch.nn.BCEWithLogitsLoss()
+    elif dataset_name in ['ogbg-code', 'ogbg-ppa']:
+        loss = torch.nn.CrossEntropyLoss()
+    else:
+        raise ValueError("No loss function specified for the given database!")
+    return loss

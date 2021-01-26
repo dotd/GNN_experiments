@@ -10,7 +10,7 @@ from torchvision import transforms
 from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
 from src.utils.proxy_utils import set_proxy
 from tst.ogb.encoder_utils import augment_edge, decode_arr_to_seq, encode_y_to_arr, get_vocab_mapping
-from tst.ogb.exp_utils import train, evaluate
+from tst.ogb.exp_utils import get_loss_function, evaluate, train
 from tst.ogb.model_and_data_utils import add_zeros, create_model
 
 
@@ -68,15 +68,14 @@ def main():
 
     split_idx = dataset.get_idx_split()
 
-    cls_criterion = torch.nn.BCEWithLogitsLoss()
+    cls_criterion = get_loss_function(dataset.name)
     # The following is only used in the evaluation of the ogbg-code classifier.
     idx2word_mapper = None
     # specific transformations for the ogbg-code dataset
-    if args.dataset in ['ogbg-code', 'ogbg-ppa']:
+    if args.dataset in ['ogbg-code']:
         vocab2idx, idx2vocab = get_vocab_mapping([dataset.data.y[i] for i in split_idx['train']], args.num_vocab)
         dataset.transform = transforms.Compose(
             [augment_edge, lambda data: encode_y_to_arr(data, vocab2idx, args.max_seq_len)])
-        cls_criterion = torch.nn.CrossEntropyLoss()
         idx2word_mapper = partial(decode_arr_to_seq, idx2vocab=idx2vocab)
 
     # automatic evaluator. takes dataset name as input

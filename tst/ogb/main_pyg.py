@@ -72,7 +72,7 @@ def main():
     # The following is only used in the evaluation of the ogbg-code classifier.
     idx2word_mapper = None
     # specific transformations for the ogbg-code dataset
-    if args.dataset == 'ogbg-code':
+    if args.dataset in ['ogbg-code', 'ogbg-ppa']:
         vocab2idx, idx2vocab = get_vocab_mapping([dataset.data.y[i] for i in split_idx['train']], args.num_vocab)
         dataset.transform = transforms.Compose(
             [augment_edge, lambda data: encode_y_to_arr(data, vocab2idx, args.max_seq_len)])

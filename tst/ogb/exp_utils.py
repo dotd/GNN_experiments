@@ -24,7 +24,7 @@ def train(model, device, loader, optimizer, cls_criterion):
             elif hasattr(batch, 'y'):
                 # ignore nan targets (unlabeled) when computing training loss.
                 is_labeled = batch.y == batch.y
-                loss = cls_criterion(pred.to(torch.float32)[is_labeled], batch.y.to(torch.float32)[is_labeled])
+                loss = cls_criterion(pred.to(torch.float32)[is_labeled], batch.y.view(-1, ).to(torch.float32)[is_labeled])
             else:
                 raise AttributeError("Batch does not contain either a y-member or a y_arr-member")
 

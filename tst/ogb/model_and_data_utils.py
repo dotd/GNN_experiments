@@ -30,7 +30,7 @@ def create_model(dataset: PygGraphPropPredDataset, emb_dim: int, dropout_ratio: 
         node_encoder = AtomEncoder(emb_dim=emb_dim)
         edge_encoder_constrtuctor = BondEncoder
         print("Number of classes: ", dataset.num_tasks)
-        model = GCN(num_classes=dataset.num_tasks, num_layer=num_layers,
+        model = GCN(num_classes=dataset.num_classes, num_layer=num_layers,
                     emb_dim=emb_dim, drop_ratio=dropout_ratio,
                     node_encoder=node_encoder, edge_encoder_ctor=edge_encoder_constrtuctor).to(device)
 

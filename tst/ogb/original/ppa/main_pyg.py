@@ -2,7 +2,7 @@ import torch
 from torch_geometric.data import DataLoader
 import torch.optim as optim
 import torch.nn.functional as F
-from gnn import GNN
+from tst.ogb.original.ppa.gnn import GNN
 
 from tqdm import tqdm
 import argparse

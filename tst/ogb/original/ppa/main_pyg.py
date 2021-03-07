@@ -2,7 +2,7 @@ import torch
 from torch_geometric.data import DataLoader
 import torch.optim as optim
 import torch.nn.functional as F
-from gnn import GNN
+from tst.ogb.original.ppa.gnn import GNN
 
 from tqdm import tqdm
 import argparse
@@ -13,6 +13,7 @@ import numpy as np
 from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
 
 multicls_criterion = torch.nn.CrossEntropyLoss()
+
 
 def train(model, device, loader, optimizer):
     model.train()
@@ -27,10 +28,11 @@ def train(model, device, loader, optimizer):
             optimizer.zero_grad()
             ## ignore nan targets (unlabeled) when computing training loss.
             is_labeled = batch.y == batch.y
-            loss = multicls_criterion(pred.to(torch.float32)[is_labeled], batch.y.view(-1,)[is_labeled])
-            
+            loss = multicls_criterion(pred.to(torch.float32)[is_labeled], batch.y.view(-1, )[is_labeled])
+
             loss.backward()
             optimizer.step()
+
 
 def eval(model, device, loader, evaluator):
     model.eval()
@@ -46,11 +48,11 @@ def eval(model, device, loader, evaluator):
             with torch.no_grad():
                 pred = model(batch)
 
-            y_true.append(batch.y.view(-1,1).detach().cpu())
-            y_pred.append(torch.argmax(pred.detach(), dim = 1).view(-1,1).cpu())
+            y_true.append(batch.y.view(-1, 1).detach().cpu())
+            y_pred.append(torch.argmax(pred.detach(), dim=1).view(-1, 1).cpu())
 
-    y_true = torch.cat(y_true, dim = 0).numpy()
-    y_pred = torch.cat(y_pred, dim = 0).numpy()
+    y_true = torch.cat(y_true, dim=0).numpy()
+    y_pred = torch.cat(y_pred, dim=0).numpy()
 
     input_dict = {"y_true": y_true, "y_pred": y_pred}
 
@@ -92,25 +94,32 @@ def main():
 
     ### automatic dataloading and splitting
 
-    dataset = PygGraphPropPredDataset(name = args.dataset, transform = add_zeros)
+    dataset = PygGraphPropPredDataset(name=args.dataset, transform=add_zeros)
 
     split_idx = dataset.get_idx_split()
 
     ### automatic evaluator. takes dataset name as input
     evaluator = Evaluator(args.dataset)
 
-    train_loader = DataLoader(dataset[split_idx["train"]], batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
-    valid_loader = DataLoader(dataset[split_idx["valid"]], batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
-    test_loader = DataLoader(dataset[split_idx["test"]], batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
+    train_loader = DataLoader(dataset[split_idx["train"]], batch_size=args.batch_size, shuffle=True,
+                              num_workers=args.num_workers)
+    valid_loader = DataLoader(dataset[split_idx["valid"]], batch_size=args.batch_size, shuffle=False,
+                              num_workers=args.num_workers)
+    test_loader = DataLoader(dataset[split_idx["test"]], batch_size=args.batch_size, shuffle=False,
+                             num_workers=args.num_workers)
 
     if args.gnn == 'gin':
-        model = GNN(gnn_type = 'gin', num_class = dataset.num_classes, num_layer = args.num_layer, emb_dim = args.emb_dim, drop_ratio = args.drop_ratio, virtual_node = False).to(device)
+        model = GNN(gnn_type='gin', num_class=dataset.num_classes, num_layer=args.num_layer, emb_dim=args.emb_dim,
+                    drop_ratio=args.drop_ratio, virtual_node=False).to(device)
     elif args.gnn == 'gin-virtual':
-        model = GNN(gnn_type = 'gin', num_class = dataset.num_classes, num_layer = args.num_layer, emb_dim = args.emb_dim, drop_ratio = args.drop_ratio, virtual_node = True).to(device)
+        model = GNN(gnn_type='gin', num_class=dataset.num_classes, num_layer=args.num_layer, emb_dim=args.emb_dim,
+                    drop_ratio=args.drop_ratio, virtual_node=True).to(device)
     elif args.gnn == 'gcn':
-        model = GNN(gnn_type = 'gcn', num_class = dataset.num_classes, num_layer = args.num_layer, emb_dim = args.emb_dim, drop_ratio = args.drop_ratio, virtual_node = False).to(device)
+        model = GNN(gnn_type='gcn', num_class=dataset.num_classes, num_layer=args.num_layer, emb_dim=args.emb_dim,
+                    drop_ratio=args.drop_ratio, virtual_node=False).to(device)
     elif args.gnn == 'gcn-virtual':
-        model = GNN(gnn_type = 'gcn', num_class = dataset.num_classes, num_layer = args.num_layer, emb_dim = args.emb_dim, drop_ratio = args.drop_ratio, virtual_node = True).to(device)
+        model = GNN(gnn_type='gcn', num_class=dataset.num_classes, num_layer=args.num_layer, emb_dim=args.emb_dim,
+                    drop_ratio=args.drop_ratio, virtual_node=True).to(device)
     else:
         raise ValueError('Invalid GNN type')
 
@@ -138,13 +147,14 @@ def main():
 
     best_val_epoch = np.argmax(np.array(valid_curve))
     best_train = max(train_curve)
-    
+
     print('Finished training!')
     print('Best validation score: {}'.format(valid_curve[best_val_epoch]))
     print('Test score: {}'.format(test_curve[best_val_epoch]))
 
     if not args.filename == '':
-        torch.save({'Val': valid_curve[best_val_epoch], 'Test': test_curve[best_val_epoch], 'Train': train_curve[best_val_epoch], 'BestTrain': best_train}, args.filename)
+        torch.save({'Val': valid_curve[best_val_epoch], 'Test': test_curve[best_val_epoch],
+                    'Train': train_curve[best_val_epoch], 'BestTrain': best_train}, args.filename)
 
 
 if __name__ == "__main__":

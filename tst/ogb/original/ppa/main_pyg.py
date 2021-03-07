@@ -107,8 +107,9 @@ def main():
     split_idx = dataset.get_idx_split()
 
     # Get pruning arguments
+    print(f"DEBUG: shape of dataset[0].x : {dataset[0].x.shape} ")
     prune_args = get_prune_args(pruning_method=args.pruning_method, num_minhash_funcs=args.num_minhash_funcs,
-                                random_pruning_prob=args.random_pruning_prob, node_dim=dataset[0].x.shape[1])
+                                random_pruning_prob=args.random_pruning_prob, node_dim=dataset[0].x.shape[0])
 
     train_data = list(dataset[split_idx["train"]])
     validation_data = list(dataset[split_idx["valid"]])

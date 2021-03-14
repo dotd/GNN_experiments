@@ -127,5 +127,31 @@ def tg_sample_prune_edges_by_minhash_lsh(tg_sample, minhash, lsh):
 
 
 def tg_dataset_prune_edges_by_minhash_lsh(tg_dataset, minhash, lsh):
+    ratios = list()
     for i, tg_sample in enumerate(tg_dataset):
+        original_number_of_edges = tg_sample.edge_index.shape[1]
         tg_sample_prune_edges_by_minhash_lsh(tg_sample, minhash, lsh)
+        new_number_of_edges = tg_sample.edge_index.shape[1]
+        ratios.append(new_number_of_edges / original_number_of_edges)
+    return np.mean(ratios)
+
+
+def tg_sample_prune_random(tg_sample, p, random):
+    num_edges = tg_sample.edge_index.shape[1]
+    index_p = int(p * num_edges)
+    indices = random.permutation(num_edges)[:index_p]
+    tg_sample.edge_index = tg_sample.edge_index[:, indices]
+    tg_sample.edge_attr = tg_sample.edge_attr[indices, :]
+
+
+def tg_dataset_prune_random(tg_dataset, p, random):
+    for i, tg_sample in enumerate(tg_dataset):
+        tg_sample_prune_random(tg_sample, p, random)
+
+
+def tg_dataset_prune(tg_dataset, method, **kwargs):
+    if method == "minhash_lsh":
+        prunning_ratio = tg_dataset_prune_edges_by_minhash_lsh(tg_dataset, minhash=kwargs.get("minhash"), lsh=kwargs.get("lsh"))
+        return prunning_ratio
+    if method == "random":
+        tg_dataset_prune_random(tg_dataset, p=kwargs.get("p"), random=kwargs.get("random"))

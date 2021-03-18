@@ -23,7 +23,7 @@ and I got the following
 Now, many python modules are missing. So I've installed this packages (behind the Bosch firewall) 
 with the following command:
 ```
-pip.exe --proxy https://did1tv:TelMane1936%21@10.4.103.143:8080 install networkx
+pip.exe --proxy https://USER:PASSWORD@10.4.103.143:8080 install networkx
 ```
 
 ## Install torch geometric on Lenovo X380 windows machine with torch==1.7.1+cpu

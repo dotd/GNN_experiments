@@ -12,8 +12,9 @@ def transform_networkx_sample_to_torch_geometric_data(networkx_sample, label):
 def transform_graph_sample_to_torch_geometric_data(graph_sample, label):
     x = torch.from_numpy(graph_sample.nodes_vecs).type(torch.FloatTensor)
     edge_index = torch.from_numpy(graph_sample.get_edges_list()).type(torch.LongTensor)
+    edge_attr = torch.from_numpy(graph_sample.edges_vecs).type(torch.FloatTensor)
     label_tensor = torch.tensor([label])
-    graph_tg = tg.data.Data(x=x, edge_index=edge_index, y=label_tensor)
+    graph_tg = tg.data.Data(x=x, edge_index=edge_index, edge_attr=edge_attr, y=label_tensor)
     return graph_tg
 
 

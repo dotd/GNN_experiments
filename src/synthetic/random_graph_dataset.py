@@ -4,17 +4,26 @@ import networkx as nx
 import torch
 
 
+"""
+Convetion:
+
+Matrix [y][x]
+list [y,x]
+"""
+
 class GraphSample:
 
     def __init__(self,
                  num_nodes,
                  nodes_vecs,
-                 edges_full=None,
-                 edges_list=None):
+                 edges_list,
+                 edges_vecs):
         self.num_nodes = num_nodes
         self.nodes_vecs = nodes_vecs
-        self.edges_full = edges_full
         self.edges_list = edges_list
+        self.edges_vecs = edges_vecs
+        self.edges_full = None
+        self.num_edges = len(self.edges_list[0])
 
     def remove_nodes(self, nodes_list):
         np.delete(self.edges_full, nodes_list, axis=0)
@@ -27,27 +36,36 @@ class GraphSample:
         self.edges_full = self.edges_full[:, idx]
         self.nodes_vecs = self.nodes_vecs[idx, :]
 
+    def get_edges_full(self):
+        if self.edges_full is None:
+            self.edges_full = np.zeros(shape=(self.num_nodes, self.num_nodes))
+            for i in range(self.num_edges):
+                self.edges_full[self.edges_list[0][i], self.edges_list[1][i]] = 1
+        return self.edges_full
+
     def get_edges_list(self):
         if self.edges_list is None:
             self.edges_list = list()
             for y in range(self.num_nodes):
                 for x in range(self.num_nodes):
-                    if self.edges_full[y, x] != 0:
-                        self.edges_list.append([x, y])
+                    if self.edges_full[y][x] != 0:
+                        self.edges_list.append([y, x])
             self.edges_list = np.array(self.edges_list).T
         return self.edges_list
-
-    def set_edges_list(self, edges_list):
-        self.edges_list = edges_list
-        self.edges_full = None
 
     def __str__(self):
         s = list()
         for y in range(self.num_nodes):
             for x in range(self.num_nodes):
-                s.append("0" if self.edges_full[y][x]==0 else "1")
+                s.append("0" if self.get_edges_full()[y][x]==0 else "1")
             s.append("\t")
             s.append(f"{' '.join([f'{num:+2.4f}' for num in self.nodes_vecs[y]])}")
+            s.append("\n")
+
+        for e in range(self.num_edges):
+            s.append(f"{self.edges_list[0][e]}->{self.edges_list[1][e]}")
+            s.append("\t")
+            s.append(f"{' '.join([f'{num:+2.4f}' for num in self.edges_vecs[e]])}")
             s.append("\n")
         return "".join(s)
 
@@ -120,12 +138,25 @@ def add_edges(edges1, edges2):
     return edges
 
 
+def edges_mat_to_list(mat):
+    N = mat.shape[0]
+    lst = list()
+    for y in range(N):
+        for x in range(N):
+            if mat[y][x] != 0:
+               lst.append([y, x])
+    return np.array(lst).T
+
+
 def create_centers(num_classes,
                    min_nodes,
                    max_nodes,
                    connectivity_rate,
                    symmetric_flag,
                    dim_nodes,
+                   dim_edges,
+                   centers_nodes_std,
+                   centers_edges_std,
                    random):
     centers = list()
 
@@ -140,18 +171,32 @@ def create_centers(num_classes,
         if symmetric_flag:
             edges_full = edges_full + edges_full.T
             edges_full[edges_full > 1] = 1
-        vector = random.normal(size=(num_nodes, dim_nodes))
-        centers.append(GraphSample(num_nodes=num_nodes, nodes_vecs=vector, edges_full=edges_full))
+        # Get edges list
+        edges_list = edges_mat_to_list(edges_full)
+
+        num_edges = np.count_nonzero(edges_full)
+        nodes_vecs = random.normal(size=(num_nodes, dim_nodes)) * centers_nodes_std
+        edges_vecs = random.normal(size=(num_edges, dim_edges)) * centers_edges_std
+        centers.append(GraphSample(num_nodes=num_nodes,
+                                   nodes_vecs=nodes_vecs,
+                                   edges_list=edges_list,
+                                   edges_vecs=edges_vecs))
     return centers
 
 
-def noise_centers(graph_sample, noise_nodes, random):
-    graph_sample.nodes_vecs = graph_sample.nodes_vecs +  random.normal(size=graph_sample.nodes_vecs.shape) * noise_nodes
+def noise_the_nodes(graph_sample, node_additive_noise_std, random):
+    graph_sample.nodes_vecs = graph_sample.nodes_vecs + \
+                              random.normal(size=graph_sample.nodes_vecs.shape) * node_additive_noise_std
+
+
+def noise_the_edges(graph_sample, edge_additive_noise_std, random):
+    graph_sample.edges_vecs = graph_sample.edges_vecs + \
+                              random.normal(size=graph_sample.edges_vecs.shape) * edge_additive_noise_std
 
 
 def noise_connectivity(graph_sample, connectivity_rate_noise, symmetric_flag, random):
     edges_full_noise = create_edges(graph_sample.num_nodes, connectivity_rate_noise, symmetric_flag, random)
-    noisy_edges = graph_sample.edges_full + edges_full_noise
+    noisy_edges = graph_sample.get_edges_full() + edges_full_noise
     noisy_edges[noisy_edges == 2] = 0  # Make flip of edges
     graph_sample.edges_full = noisy_edges
 
@@ -173,12 +218,16 @@ def generate_graphs_dataset(num_samples,
                             min_nodes,
                             max_nodes,
                             dim_nodes,
-                            noise_nodes,
+                            dim_edges,
                             connectivity_rate,
                             connectivity_rate_noise,
                             noise_remove_node,
-                            noise_add_node,
                             symmetric_flag,
+                            centers_nodes_std,
+                            centers_edges_std,
+                            nodes_order_scramble_flag,
+                            node_additive_noise_std,
+                            edge_additive_noise_std,
                             random):
     # Generate classes centers
     centers = create_centers(num_classes,
@@ -186,8 +235,11 @@ def generate_graphs_dataset(num_samples,
                              max_nodes,
                              connectivity_rate,
                              symmetric_flag,
-                             dim_nodes,
-                             random)
+                             dim_nodes=dim_nodes,
+                             dim_edges=dim_edges,
+                             centers_nodes_std=centers_nodes_std,
+                             centers_edges_std=centers_edges_std,
+                             random=random)
     samples = list()
     labels = list()
 
@@ -202,7 +254,8 @@ def generate_graphs_dataset(num_samples,
         # print(f"original=\n{center}")
 
         # noise the vector nodes
-        noise_centers(sample, noise_nodes, random)
+        noise_the_nodes(sample, node_additive_noise_std, random)
+        noise_the_edges(sample, edge_additive_noise_std, random)
         # print(f"noise_centers=\n{center}")
 
         # noise the edges_full
@@ -214,7 +267,8 @@ def generate_graphs_dataset(num_samples,
         # print(f"remove_node_noise=\n{center}")
 
         # Scramble
-        scramble_graph(sample, random)
+        if nodes_order_scramble_flag:
+            scramble_graph(sample, random)
         # print(f"scramble_graph=\n{center}")
 
         samples.append(sample)

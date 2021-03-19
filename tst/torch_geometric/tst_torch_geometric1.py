@@ -117,9 +117,9 @@ class GCN(torch.nn.Module):
         return x
 
 
-def train(model, train_loader):
-    tst.ogb.exp_utils.train()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+def train(model, train_loader, lr=0.01):
+    model.train()
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = torch.nn.CrossEntropyLoss()
 
     for data in train_loader:  # Iterate in batches over the training dataset.

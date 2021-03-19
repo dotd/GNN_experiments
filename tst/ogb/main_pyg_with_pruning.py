@@ -17,7 +17,7 @@ from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
 
 from src.utils.date_utils import get_time_str
 from src.utils.graph_prune_utils import tg_dataset_prune
-from src.utils.logging_utils import register_logger
+from src.utils.logging_utils import register_logger, log_args_description
 from src.utils.lsh_euclidean_tools import LSH
 from src.utils.minhash_tools import MinHash
 from src.utils.proxy_utils import set_proxy
@@ -112,6 +112,7 @@ def main():
         tb_writer.iteration = 0
 
     register_logger(log_file=log_file, stdout=True)
+    log_args_description(args)
 
     device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
 

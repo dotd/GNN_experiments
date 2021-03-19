@@ -1,8 +1,9 @@
 import torch
 from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
 
 
-def train(model, device, loader, optimizer, cls_criterion):
+def train(model, device, loader, optimizer, cls_criterion, tb_writer=None):
     model.train()
 
     for step, batch in enumerate(tqdm(loader, desc="Iteration")):
@@ -32,6 +33,10 @@ def train(model, device, loader, optimizer, cls_criterion):
 
             loss.backward()
             optimizer.step()
+
+            if tb_writer is not None:
+                tb_writer.add_scalar('Loss/train_iterations', loss.item(), tb_writer.iteration)
+                tb_writer.iteration += 1
 
 
 def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str):
@@ -86,3 +91,7 @@ def get_loss_function(dataset_name: str):
     else:
         raise ValueError("No loss function specified for the given database!")
     return loss
+
+
+def get_tensorboard_logger(log_dir):
+    tb_writer = SummaryWriter(log_dir=log_dir)

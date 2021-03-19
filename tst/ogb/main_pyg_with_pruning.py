@@ -207,7 +207,7 @@ def main():
 
     if best_results_file is not None:
         torch.save({'Val': valid_curve[best_val_epoch], 'Test': test_curve[best_val_epoch],
-                    'Train': train_curve[best_val_epoch], 'BestTrain': best_train}, args.filename)
+                    'Train': train_curve[best_val_epoch], 'BestTrain': best_train}, best_results_file)
 
 
 if __name__ == "__main__":

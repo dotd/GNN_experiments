@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from torch_geometric.data import Data
+
 
 def get_adjacent_edges_of_nodes(num_nodes, edge_index, edge_attr):
     num_edges = edge_index.shape[1]
@@ -141,7 +141,8 @@ def tg_sample_prune_random(tg_sample, p, random):
     index_p = int(p * num_edges)
     indices = random.permutation(num_edges)[:index_p]
     tg_sample.edge_index = tg_sample.edge_index[:, indices]
-    tg_sample.edge_attr = tg_sample.edge_attr[indices, :]
+    if hasattr(tg_sample, 'edge_attr') and tg_sample.edge_attr is not None:
+        tg_sample.edge_attr = tg_sample.edge_attr[indices, :]
 
 
 def tg_dataset_prune_random(tg_dataset, p, random):

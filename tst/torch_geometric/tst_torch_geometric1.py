@@ -11,6 +11,7 @@ from torch_geometric.data import DataLoader
 from torch_geometric.nn import GCNConv
 from torch_geometric.nn import global_mean_pool
 
+import tst.ogb.exp_utils
 from definitions_gnn_experiments import ROOT_DIR
 from src.utils.proxy_utils import set_proxy
 from src.utils.file_utils import create_folder_safe, save_str, file_exists

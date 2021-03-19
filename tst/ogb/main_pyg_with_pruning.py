@@ -1,20 +1,54 @@
+from time import time
+
 import argparse
 from functools import partial
+from typing import Dict
 
 import numpy as np
 import torch
 import torch.optim as optim
 from torch_geometric.data import DataLoader
 from torchvision import transforms
+from tqdm import tqdm
 
+import tst.ogb.exp_utils
 from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
+from src.utils.graph_prune_utils import tg_dataset_prune
+from src.utils.lsh_euclidean_tools import LSH
+from src.utils.minhash_tools import MinHash
 from src.utils.proxy_utils import set_proxy
 from tst.ogb.encoder_utils import augment_edge, decode_arr_to_seq, encode_y_to_arr, get_vocab_mapping
 from tst.ogb.exp_utils import get_loss_function, evaluate, train
 from tst.ogb.model_and_data_utils import add_zeros, create_model
 
 
+def get_prune_args(pruning_method: str, num_minhash_funcs: int, random_pruning_prob: float, node_dim: int) -> Dict:
+    rnd = np.random.RandomState(0)
+    if pruning_method == "minhash_lsh":
+        minhash = MinHash(num_minhash_funcs, rnd, prime=2147483647)
+        # MinHash parameters
+        print(f"minhash:\n{minhash}")
+        # LSH parameters
+        lsh_num_funcs = 2
+        sparsity = 3
+        std_of_threshold = 1
+        lsh = LSH(node_dim,
+                  num_functions=lsh_num_funcs,
+                  sparsity=sparsity,
+                  std_of_threshold=std_of_threshold,
+                  random=rnd)
+        print(f"lsh:\n{lsh}")
+
+        prune_args = {"minhash": minhash, "lsh": lsh}
+    elif pruning_method == "random":
+        prune_args = {"random": rnd, "p": random_pruning_prob}
+    else:
+        raise ValueError("Invalid pruning method")
+    return prune_args
+
+
 def main():
+    start_time = time()
     # Training settings
     parser = argparse.ArgumentParser(description='GNN baselines on ogbgmol* data with Pytorch Geometrics')
     parser.add_argument('--device', type=int, default=0,
@@ -42,6 +76,12 @@ def main():
                         help='filename to output result (default: )')
     parser.add_argument('--proxy', action="store_true", default=False,
                         help="Set proxy env. variables. Need in bosch networks.", )
+
+    # Pruning specific params:
+    parser.add_argument('--pruning_method', type=str, default='random')
+    parser.add_argument('--random_pruning_prob', type=float, default=.5)
+    parser.add_argument('--num_minhash_funcs', type=int, default=1)
+
     # dataset specific params:
     parser.add_argument('--max_seq_len', type=int, default=5,
                         help='Maximum sequence length to predict -- for ogbgb-code (default: 5)')
@@ -49,7 +89,6 @@ def main():
                         help='The number of vocabulary used for sequence prediction (default: 5000)')
 
     args = parser.parse_args()
-
     device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
 
     if args.proxy:
@@ -58,7 +97,38 @@ def main():
     # automatic data loading and splitting
     transform = add_zeros if args.dataset == 'ogbg-ppa' else None
     dataset = PygGraphPropPredDataset(name=args.dataset, transform=transform)
-    print(f"DEBUG: Loaded the dataset: {dataset.name}")
+    cls_criterion = get_loss_function(dataset.name)
+    idx2word_mapper = None
+    split_idx = dataset.get_idx_split()
+    # The following is only used in the evaluation of the ogbg-code classifier.
+    if args.dataset == 'ogbg-code':
+        vocab2idx, idx2vocab = get_vocab_mapping([dataset.data.y[i] for i in split_idx['train']], args.num_vocab)
+        # specific transformations for the ogbg-code dataset
+        dataset.transform = transforms.Compose(
+            [augment_edge, lambda data: encode_y_to_arr(data, vocab2idx, args.max_seq_len)])
+        idx2word_mapper = partial(decode_arr_to_seq, idx2vocab=idx2vocab)
+
+    # Get pruning arguments
+    prune_args = get_prune_args(pruning_method=args.pruning_method, num_minhash_funcs=args.num_minhash_funcs,
+                                random_pruning_prob=args.random_pruning_prob, node_dim=dataset[0].x.shape[1])
+
+    train_data = list(dataset[split_idx["train"]])
+    validation_data = list(dataset[split_idx["valid"]])
+    test_data = list(dataset[split_idx["test"]])
+    old_avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
+    tg_dataset_prune(train_data, args.pruning_method, **prune_args)
+    avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
+    print(
+        f"Old average number of edges: {old_avg_edge_count}. New one: {avg_edge_count}. Change: {(old_avg_edge_count - avg_edge_count) / old_avg_edge_count * 100}\%")
+    tg_dataset_prune(validation_data, args.pruning_method, **prune_args)
+    tg_dataset_prune(test_data, args.pruning_method, **prune_args)
+    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True,
+                              num_workers=args.num_workers)
+    valid_loader = DataLoader(validation_data, batch_size=args.batch_size, shuffle=False,
+                              num_workers=args.num_workers)
+    test_loader = DataLoader(test_data, batch_size=args.batch_size, shuffle=False,
+                             num_workers=args.num_workers)
+
     if args.feature == 'full':
         pass
     elif args.feature == 'simple':
@@ -67,33 +137,10 @@ def main():
         dataset.data.x = dataset.data.x[:, :2]
         dataset.data.edge_attr = dataset.data.edge_attr[:, :2]
 
-    split_idx = dataset.get_idx_split()
-
-    cls_criterion = get_loss_function(dataset.name)
-    # The following is only used in the evaluation of the ogbg-code classifier.
-    idx2word_mapper = None
-    # specific transformations for the ogbg-code dataset
-    if args.dataset in ['ogbg-code']:
-        vocab2idx, idx2vocab = get_vocab_mapping([dataset.data.y[i] for i in split_idx['train']], args.num_vocab)
-        dataset.transform = transforms.Compose(
-            [augment_edge, lambda data: encode_y_to_arr(data, vocab2idx, args.max_seq_len)])
-        idx2word_mapper = partial(decode_arr_to_seq, idx2vocab=idx2vocab)
-
-    # automatic evaluator. takes dataset name as input
     evaluator = Evaluator(args.dataset)
-
-    train_loader = DataLoader(dataset[split_idx["train"]], batch_size=args.batch_size, shuffle=True,
-                              num_workers=args.num_workers)
-    valid_loader = DataLoader(dataset[split_idx["valid"]], batch_size=args.batch_size, shuffle=False,
-                              num_workers=args.num_workers)
-    test_loader = DataLoader(dataset[split_idx["test"]], batch_size=args.batch_size, shuffle=False,
-                             num_workers=args.num_workers)
-
-    # original
     model = create_model(dataset=dataset, emb_dim=args.emb_dim,
                          dropout_ratio=args.drop_ratio, device=device, num_layers=args.num_layer,
                          max_seq_len=args.max_seq_len, num_vocab=args.num_vocab)
-
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     valid_curve = []
@@ -119,16 +166,12 @@ def main():
         valid_curve.append(valid_perf[dataset.eval_metric])
         test_curve.append(test_perf[dataset.eval_metric])
 
-    if 'classification' in dataset.task_type:
-        best_val_epoch = np.argmax(np.array(valid_curve)).item()
-        best_train = max(train_curve)
-    else:
-        best_val_epoch = np.argmin(np.array(valid_curve))
-        best_train = min(train_curve)
-
-    print('Finished training!')
-    print(f'Best validation score: {valid_curve[best_val_epoch]}')
-    print(f'Test score: {test_curve[best_val_epoch]}')
+    best_val_epoch = np.argmax(np.array(valid_curve)).item()
+    best_train = max(train_curve)
+    finish_time = time()
+    print(f'Finished training! Elapsed time: {(finish_time - start_time) / 60} minutes')
+    print('Best validation score: {}'.format(valid_curve[best_val_epoch]))
+    print('Test score: {}'.format(test_curve[best_val_epoch]))
 
     if not args.filename == '':
         torch.save({'Val': valid_curve[best_val_epoch], 'Test': test_curve[best_val_epoch],

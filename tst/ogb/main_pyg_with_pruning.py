@@ -5,6 +5,7 @@ from os import path
 import argparse
 from functools import partial
 from typing import Dict
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -82,7 +83,8 @@ def main():
                         help="Set proxy env. variables. Need in bosch networks.", )
 
     # Pruning specific params:
-    parser.add_argument('--pruning_method', type=str, default='random')
+    parser.add_argument('--pruning_method', type=str, default='random',
+                        choices=["minhash_lsh", "random"])
     parser.add_argument('--random_pruning_prob', type=float, default=.5)
     parser.add_argument('--num_minhash_funcs', type=int, default=1)
 
@@ -101,12 +103,16 @@ def main():
     best_results_file = None
     log_file = None
     if args.exps_dir is not None:
-        exps_dir = path.join(args.exps_dir, 'pyg_with_pruning', args.dataset, get_time_str())
-        best_results_file = path.join(exps_dir, 'best_results.txt')
-        log_file = path.join(exps_dir, r'log.log')
-        tensorboard_dir = path.join(exps_dir, 'tensorboard')
-        if not path.exists(tensorboard_dir):
-            os.makedirs(tensorboard_dir, exist_ok=True)
+        exps_dir = Path(args.exps_dir) / 'pyg_with_pruning' / args.dataset / args.pruning_method / str(args.random_pruning_prob)
+        if args.pruning_method == 'minhash_lsh':
+            exps_dir = exps_dir / str(args.num_minhash_funcs)
+
+        exps_dir = exps_dir / get_time_str()
+        best_results_file = exps_dir / 'best_results.txt'
+        log_file = exps_dir / r'log.log'
+        tensorboard_dir = exps_dir / 'tensorboard'
+        if not tensorboard_dir.exists():
+            tensorboard_dir.mkdir(parents=True, exist_ok=True)
 
         tb_writer = SummaryWriter(log_dir=tensorboard_dir)
         tb_writer.iteration = 0

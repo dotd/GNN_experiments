@@ -18,7 +18,7 @@ from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
 
 from src.utils.date_utils import get_time_str
 from src.utils.graph_prune_utils import tg_dataset_prune
-from src.utils.logging_utils import register_logger, log_args_description
+from src.utils.logging_utils import register_logger, log_args_description, get_clearml_logger
 from src.utils.lsh_euclidean_tools import LSH
 from src.utils.minhash_tools import MinHash
 from src.utils.proxy_utils import set_proxy
@@ -96,8 +96,15 @@ def main():
 
     # logging params:
     parser.add_argument('--exps_dir', type=str, help='Target directory to save logging files')
+    parser.add_argument('--enable_clearml_logger',
+                        default=False,
+                        action='store_true',
+                        help="Enable logging to ClearML server")
 
     args = parser.parse_args()
+
+    if args.enable_clearml_logger:
+        clearml_logger = get_clearml_logger(project_name="GNN_pruning", task_name=f"pruning_method_{args.pruning_method}")
 
     tb_writer = None
     best_results_file = None

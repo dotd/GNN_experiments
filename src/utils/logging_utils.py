@@ -1,5 +1,6 @@
 import logging
 import sys
+from clearml import Task
 
 
 def register_logger(log_file=None, stdout=True):
@@ -37,3 +38,9 @@ def log_args_description(args):
         s += f"      {k}: {v}\n"
 
     logging.info(args_header + s)
+
+
+def get_clearml_logger(project_name, task_name):
+    task = Task.init(project_name=project_name, task_name=task_name)
+    logger = task.get_logger()
+    return logger

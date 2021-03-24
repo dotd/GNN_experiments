@@ -18,7 +18,7 @@ from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
 
 from src.utils.date_utils import get_time_str
 from src.utils.graph_prune_utils import tg_dataset_prune
-from src.utils.logging_utils import register_logger, log_args_description, get_clearml_logger
+from src.utils.logging_utils import register_logger, log_args_description, get_clearml_logger, log_command
 from src.utils.lsh_euclidean_tools import LSH
 from src.utils.minhash_tools import MinHash
 from src.utils.proxy_utils import set_proxy
@@ -59,7 +59,7 @@ def main():
     parser.add_argument('--device', type=int, default=0,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--gnn', type=str, default='gcn',
-                        help='GNN gcn, or gcn-virtual (default: gcn)')
+                        help='GNN gcn, or gcn-virtual (default: gcn)', choices=['gcn',])
     parser.add_argument('--drop_ratio', type=float, default=0.5,
                         help='dropout ratio (default: 0.5)')
     parser.add_argument('--num_layer', type=int, default=5,
@@ -125,6 +125,7 @@ def main():
         tb_writer.iteration = 0
 
     register_logger(log_file=log_file, stdout=True)
+    log_command()
     log_args_description(args)
 
     device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")

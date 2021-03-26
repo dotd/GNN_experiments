@@ -51,13 +51,13 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
     adjacent_nodes, adjacent_edges_features = get_adjacent_edges_of_nodes(num_nodes,
                                                                           edge_list,
                                                                           edge_attr)
-    lsh_vectors = list()
-    lsh_vectors_str = list()
+    lsh_nodes_signatures = list()
+    lsh_nodes_signatures_str = list()
     for n in range(num_nodes):
         vector = node_vectors[n, :]
         signature = lsh.sign_vector(vector)
-        lsh_vectors.append(signature)
-        lsh_vectors_str.append("".join(f"{x}" for x in signature))
+        lsh_nodes_signatures.append(signature)
+        lsh_nodes_signatures_str.append("".join(f"{x}" for x in signature))
 
     for n in range(num_nodes):
         # Get all the adjacent nodes.
@@ -79,9 +79,12 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
         for idx in range(len(nodes)):
             node = nodes[idx]
             attr = edge_attr[idx]
-            adjacent_reps.append(lsh_vectors_str[node])
-            rep_to_node_map[lsh_vectors_str[node]] = node
-            rep_to_attr_map[lsh_vectors_str[node]] = attr
+            signature_edge_attr = lsh.sign_vector(attr)
+            signature_edge_attr_str = "".join(f"{x}" for x in signature_edge_attr)
+            adjacent_reps.append(lsh_nodes_signatures_str[node])
+            adjacent_reps.append(signature_edge_attr_str)
+            rep_to_node_map[lsh_nodes_signatures_str[node]] = node
+            rep_to_attr_map[lsh_nodes_signatures_str[node]] = attr
         # Transform the adjacent nodes to their signatures
         vec, vec_vals, translation = minhash.apply(adjacent_reps)
         # The pruned list construction

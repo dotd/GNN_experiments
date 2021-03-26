@@ -1,6 +1,7 @@
 import numpy as np
 import time
 import copy
+
 start_time = time.time()
 
 from torch_geometric.data import DataLoader
@@ -10,10 +11,9 @@ from tst.torch_geometric.tst_torch_geometric1 import GCN
 from src.synthetic.synthetic_utils import transform_dataset_to_torch_geometric_dataset
 from tst.torch_geometric.tst_torch_geometric1 import train, func_test
 
-
 from src.utils.graph_prune_utils import tg_dataset_prune
 from src.utils.lsh_euclidean_tools import LSH
-from src.utils.minhash_tools import MinHash
+from src.utils.minhash_tools import MinHashRep
 
 
 def tst_minhash_lsh_vs_random(random=np.random.RandomState(0)):
@@ -33,8 +33,8 @@ def tst_minhash_lsh_vs_random(random=np.random.RandomState(0)):
     num_classes = 10
     min_nodes = 20
     max_nodes = 30
-    dim_nodes = 0
-    dim_edges = 2
+    dim_nodes = 4
+    dim_edges = 3
     connectivity_rate = 0.2
     connectivity_rate_noise = 0.15
     symmetric_flag = True
@@ -70,29 +70,35 @@ def tst_minhash_lsh_vs_random(random=np.random.RandomState(0)):
         print(f"center {idx}")
         print(f"{center.__str__()}")
 
-
     # Next, we define both Minhash and LSH for generating datasets
     # MinHash parameters
     num_minhash_funcs = 1
-    minhash = MinHash(num_minhash_funcs, random, prime=2147483647)
+    minhash = MinHashRep(num_minhash_funcs, random, prime=2147483647)
     print(f"minhash:\n{minhash}")
 
     # LSH parameters
     lsh_num_funcs = 2
-    sparsity = 3
+    sparsity = 2
     std_of_threshold = 1
-    lsh = LSH(dim_nodes,
-              num_functions=lsh_num_funcs,
-              sparsity=sparsity,
-              std_of_threshold=std_of_threshold,
-              random=random)
-    print(f"lsh:\n{lsh}")
+    lsh_nodes = LSH(dim_nodes,
+                    num_functions=lsh_num_funcs,
+                    sparsity=sparsity,
+                    std_of_threshold=std_of_threshold,
+                    random=random)
+    print(f"lsh_nodes:\n{lsh_nodes}")
+
+    lsh_edges = LSH(dim_edges,
+                    num_functions=lsh_num_funcs,
+                    sparsity=sparsity,
+                    std_of_threshold=std_of_threshold,
+                    random=random)
+    lsh_edges = None
+    print(f"lsh_edges:\n{lsh_edges}")
 
     # (2) Create the dataset
     print("(2) Create the dataset")
     # Transform the dataset
     tg_dataset_original = transform_dataset_to_torch_geometric_dataset(graph_dataset.samples, graph_dataset.labels)
-
 
     # (3) Do the prunning
     print("(3) Do the prunning")
@@ -101,7 +107,7 @@ def tst_minhash_lsh_vs_random(random=np.random.RandomState(0)):
     tg_dataset_random = copy.deepcopy(tg_dataset_original)
 
     # Do the pruneing according to the two methods:
-    prunning_ratio = tg_dataset_prune(tg_dataset_minhash_lsh, "minhash_lsh", minhash=minhash, lsh=lsh)
+    prunning_ratio = tg_dataset_prune(tg_dataset_minhash_lsh, "minhash_lsh", minhash=minhash, lsh_nodes=lsh_nodes, lsh_edges=lsh_edges)
     print(f"prunning_ratio = {prunning_ratio}")
     tg_dataset_prune(tg_dataset_random, "random", p=prunning_ratio, random=random)
 
@@ -129,7 +135,8 @@ def tst_minhash_lsh_vs_random(random=np.random.RandomState(0)):
         train(model, train_loader, lr=0.01)
         train_acc = func_test(model, train_loader)
         test_acc = func_test(model, test_loader)
-        print(f'{time.time() - start_time:.4f} Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
+        print(
+            f'{time.time() - start_time:.4f} Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
         epoch_times_original.append(time.time() - start_epoch)
     test_acc_original = test_acc
 
@@ -148,7 +155,8 @@ def tst_minhash_lsh_vs_random(random=np.random.RandomState(0)):
         train(model, train_loader)
         train_acc = func_test(model, train_loader)
         test_acc = func_test(model, test_loader)
-        print(f'{time.time() - start_time:.4f} Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
+        print(
+            f'{time.time() - start_time:.4f} Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
         epoch_times_minhash_lsh.append(time.time() - start_epoch)
     test_acc_minhash_lsh = test_acc
 
@@ -167,7 +175,8 @@ def tst_minhash_lsh_vs_random(random=np.random.RandomState(0)):
         train(model, train_loader)
         train_acc = func_test(model, train_loader)
         test_acc = func_test(model, test_loader)
-        print(f'{time.time() - start_time:.4f} Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
+        print(
+            f'{time.time() - start_time:.4f} Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
         epoch_times_random.append(time.time() - start_epoch)
     test_acc_random = test_acc
 

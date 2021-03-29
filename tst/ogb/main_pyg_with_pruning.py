@@ -1,21 +1,18 @@
-import logging
-import os
-from time import time
-from os import path
 import argparse
-from functools import partial
-from typing import Dict
-from pathlib import Path
 import json
+import logging
+from functools import partial
+from pathlib import Path
+from time import time
+from typing import Dict
 
 import numpy as np
 import torch
 import torch.optim as optim
+from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
+from torch.utils.tensorboard import SummaryWriter
 from torch_geometric.data import DataLoader
 from torchvision import transforms
-from torch.utils.tensorboard import SummaryWriter
-
-from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
 
 from src.utils.date_utils import get_time_str
 from src.utils.graph_prune_utils import tg_dataset_prune
@@ -103,16 +100,7 @@ def get_args():
     return parser.parse_args()
 
 
-def main():
-    start_time = time()
-    # Training settings
-    args = get_args()
-
-
-    if args.enable_clearml_logger:
-        clearml_logger = get_clearml_logger(project_name="GNN_pruning",
-                                            task_name=f"pruning_method_{args.pruning_method}")
-
+def register_logging_files(args):
     tb_writer = None
     best_results_file = None
     log_file = None
@@ -137,24 +125,55 @@ def main():
     log_command()
     log_args_description(args)
 
-    device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
+    register_logger(log_file=log_file, stdout=True)
+    log_command()
+    log_args_description(args)
 
-    if args.proxy:
-        set_proxy()
+    if args.enable_clearml_logger:
+        clearml_logger = get_clearml_logger(project_name="GNN_pruning",
+                                            task_name=f"pruning_method_{args.pruning_method}")
 
+    return tb_writer, best_results_file, log_file
+
+
+def load_dataset(args):
     # automatic data loading and splitting
     transform = add_zeros if args.dataset == 'ogbg-ppa' else None
     dataset = PygGraphPropPredDataset(name=args.dataset, transform=transform)
+
+    if args.dataset == 'obgb-code2':
+        seq_len_list = np.array([len(seq) for seq in dataset.data.y])
+        print('Target seqence less or equal to {} is {}%.'.format(args.max_seq_len,
+                                                                  np.sum(seq_len_list <= args.max_seq_len) / len(
+                                                                      seq_len_list)))
+
     cls_criterion = get_loss_function(dataset.name)
     idx2word_mapper = None
     split_idx = dataset.get_idx_split()
     # The following is only used in the evaluation of the ogbg-code classifier.
-    if args.dataset == 'ogbg-code':
+    if args.dataset == 'ogbg-code2':
         vocab2idx, idx2vocab = get_vocab_mapping([dataset.data.y[i] for i in split_idx['train']], args.num_vocab)
         # specific transformations for the ogbg-code dataset
         dataset.transform = transforms.Compose(
             [augment_edge, lambda data: encode_y_to_arr(data, vocab2idx, args.max_seq_len)])
         idx2word_mapper = partial(decode_arr_to_seq, idx2vocab=idx2vocab)
+
+    return dataset, split_idx, cls_criterion, idx2word_mapper
+
+
+def main():
+    start_time = time()
+    # Training settings
+    args = get_args()
+
+    tb_writer, best_results_file, log_file = register_logging_files(args)
+
+    device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
+
+    if args.proxy:
+        set_proxy()
+
+    dataset, split_idx, cls_criterion, idx2word_mapper = load_dataset(args)
 
     # Get pruning arguments
     prune_args = get_prune_args(pruning_method=args.pruning_method, num_minhash_funcs=args.num_minhash_funcs,
@@ -163,7 +182,9 @@ def main():
     train_data = list(dataset[split_idx["train"]])
     validation_data = list(dataset[split_idx["valid"]])
     test_data = list(dataset[split_idx["test"]])
+
     old_avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
+
     tg_dataset_prune(train_data, args.pruning_method, **prune_args)
     avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
     logging.info(

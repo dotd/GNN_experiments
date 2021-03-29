@@ -58,6 +58,7 @@ def create_model(dataset: PygGraphPropPredDataset, emb_dim: int, dropout_ratio: 
     elif dataset.name == "ogbg-code2":
         nodetypes_mapping = pd.read_csv(Path(dataset.root) / 'mapping' / 'typeidx2type.csv.gz')
         nodeattributes_mapping = pd.read_csv(Path(dataset.root) / 'mapping' / 'attridx2attr.csv.gz')
+        print(nodeattributes_mapping)
         node_encoder = ASTNodeEncoder(emb_dim, num_nodetypes=len(nodetypes_mapping['type']),
                                       num_nodeattributes=len(nodeattributes_mapping['attr']), max_depth=20)
         split_idx = dataset.get_idx_split()

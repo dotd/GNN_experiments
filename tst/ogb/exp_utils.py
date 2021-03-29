@@ -66,13 +66,17 @@ def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str, re
                     pred = model(batch)
 
                 # ogbg-code is a multi-labelling task, so it needs to be treated diffrerently
-                if dataset_name == 'ogbg-code':
+                if dataset_name == 'ogbg-code2':
                     mat = []
                     for i in range(len(pred)):
                         mat.append(torch.argmax(pred[i], dim=1).view(-1, 1))
+
                     mat = torch.cat(mat, dim=1)
+
                     seq_pred = [arr_to_seq(arr) for arr in mat]
+
                     seq_ref = [batch.y[i] for i in range(len(batch.y))]
+
                     y_true.extend(seq_ref)
                     y_pred.extend(seq_pred)
                 elif dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba':
@@ -88,7 +92,7 @@ def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str, re
 
     iterations_per_second = len(loader) / (end_time - start_time)
 
-    if dataset_name == 'ogbg-code':
+    if dataset_name == 'ogbg-code2':
         input_dict = {"seq_ref": y_true, "seq_pred": y_pred}
     elif dataset_name in ['ogbg-molhiv', 'ogbg-ppa', 'ogbg-molpcba']:
         y_true = torch.cat(y_true, dim=0).numpy()
@@ -99,6 +103,7 @@ def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str, re
         return evaluator.eval(input_dict), iterations_per_second
     else:
         return evaluator.eval(input_dict)
+
 
 def get_loss_function(dataset_name: str):
     loss = None

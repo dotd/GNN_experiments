@@ -53,9 +53,7 @@ def get_prune_args(pruning_method: str, num_minhash_funcs: int, random_pruning_p
     return prune_args
 
 
-def main():
-    start_time = time()
-    # Training settings
+def get_args():
     parser = argparse.ArgumentParser(description='GNN baselines on ogbgmol* data with Pytorch Geometrics')
     parser.add_argument('--device', type=int, default=0,
                         help='which gpu to use if any (default: 0)')
@@ -102,7 +100,14 @@ def main():
                         action='store_true',
                         help="Enable logging to ClearML server")
 
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+def main():
+    start_time = time()
+    # Training settings
+    args = get_args()
+
 
     if args.enable_clearml_logger:
         clearml_logger = get_clearml_logger(project_name="GNN_pruning",

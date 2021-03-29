@@ -1,3 +1,5 @@
+import time
+
 import torch
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
@@ -6,6 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 def train(model, device, loader, optimizer, cls_criterion, tb_writer=None):
     model.train()
 
+    start_time = time.time()
     for step, batch in enumerate(tqdm(loader, desc="Iteration")):
         batch = batch.to(device)
 
@@ -38,39 +41,52 @@ def train(model, device, loader, optimizer, cls_criterion, tb_writer=None):
                 tb_writer.add_scalar('Loss/train_iterations', loss.item(), tb_writer.iteration)
                 tb_writer.iteration += 1
 
+    end_time = time.time()
 
-def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str):
+    iterations_per_second = len(loader) / (end_time - start_time)
+
+    return iterations_per_second
+
+
+def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str, return_avg_time: bool=False):
     model.eval()
     y_true = []
     y_pred = []
 
-    for step, batch in enumerate(tqdm(loader, desc="Iteration")):
-        batch = batch.to(device)
+    start_time = time.time()
 
-        if batch.x.shape[0] == 1:
-            pass
-        else:
-            with torch.no_grad():
-                pred = model(batch)
+    with torch.no_grad():
+        for step, batch in enumerate(tqdm(loader, desc="Iteration")):
+            batch = batch.to(device)
 
-            # ogbg-code is a multi-labelling task, so it needs to be treated diffrerently
-            if dataset_name == 'ogbg-code':
-                mat = []
-                for i in range(len(pred)):
-                    mat.append(torch.argmax(pred[i], dim=1).view(-1, 1))
-                mat = torch.cat(mat, dim=1)
-                seq_pred = [arr_to_seq(arr) for arr in mat]
-                seq_ref = [batch.y[i] for i in range(len(batch.y))]
-                y_true.extend(seq_ref)
-                y_pred.extend(seq_pred)
-            elif dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba':
-                y_true.append(batch.y.view(pred.shape).detach().cpu())
-                y_pred.append(pred.detach().cpu())
-            elif dataset_name == 'ogbg-ppa':
-                y_true.append(batch.y.view(-1, 1).detach().cpu())
-                y_pred.append(torch.argmax(pred.detach(), dim=1).view(-1, 1).cpu())
+            if batch.x.shape[0] == 1:
+                pass
             else:
-                raise AttributeError("Batch does not contain either a y-member or a y_arr-member")
+                with torch.no_grad():
+                    pred = model(batch)
+
+                # ogbg-code is a multi-labelling task, so it needs to be treated diffrerently
+                if dataset_name == 'ogbg-code':
+                    mat = []
+                    for i in range(len(pred)):
+                        mat.append(torch.argmax(pred[i], dim=1).view(-1, 1))
+                    mat = torch.cat(mat, dim=1)
+                    seq_pred = [arr_to_seq(arr) for arr in mat]
+                    seq_ref = [batch.y[i] for i in range(len(batch.y))]
+                    y_true.extend(seq_ref)
+                    y_pred.extend(seq_pred)
+                elif dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba':
+                    y_true.append(batch.y.view(pred.shape).detach().cpu())
+                    y_pred.append(pred.detach().cpu())
+                elif dataset_name == 'ogbg-ppa':
+                    y_true.append(batch.y.view(-1, 1).detach().cpu())
+                    y_pred.append(torch.argmax(pred.detach(), dim=1).view(-1, 1).cpu())
+                else:
+                    raise AttributeError("Batch does not contain either a y-member or a y_arr-member")
+
+    end_time = time.time()
+
+    iterations_per_second = len(loader) / (end_time - start_time)
 
     if dataset_name == 'ogbg-code':
         input_dict = {"seq_ref": y_true, "seq_pred": y_pred}
@@ -79,19 +95,17 @@ def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str):
         y_pred = torch.cat(y_pred, dim=0).numpy()
         input_dict = {"y_true": y_true, "y_pred": y_pred}
 
-    return evaluator.eval(input_dict)
-
+    if return_avg_time:
+        return evaluator.eval(input_dict), iterations_per_second
+    else:
+        return evaluator.eval(input_dict)
 
 def get_loss_function(dataset_name: str):
     loss = None
     if dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba':
         loss = torch.nn.BCEWithLogitsLoss()
-    elif dataset_name in ['ogbg-code', 'ogbg-ppa']:
+    elif dataset_name in ['ogbg-code2', 'ogbg-ppa']:
         loss = torch.nn.CrossEntropyLoss()
     else:
         raise ValueError("No loss function specified for the given database!")
     return loss
-
-
-def get_tensorboard_logger(log_dir):
-    tb_writer = SummaryWriter(log_dir=log_dir)

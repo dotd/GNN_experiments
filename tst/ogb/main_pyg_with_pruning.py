@@ -6,6 +6,7 @@ import argparse
 from functools import partial
 from typing import Dict
 from pathlib import Path
+import json
 
 import numpy as np
 import torch
@@ -59,7 +60,7 @@ def main():
     parser.add_argument('--device', type=int, default=0,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--gnn', type=str, default='gcn',
-                        help='GNN gcn, or gcn-virtual (default: gcn)', choices=['gcn',])
+                        help='GNN gcn, or gcn-virtual (default: gcn)', choices=['gcn', ])
     parser.add_argument('--drop_ratio', type=float, default=0.5,
                         help='dropout ratio (default: 0.5)')
     parser.add_argument('--num_layer', type=int, default=5,
@@ -104,14 +105,17 @@ def main():
     args = parser.parse_args()
 
     if args.enable_clearml_logger:
-        clearml_logger = get_clearml_logger(project_name="GNN_pruning", task_name=f"pruning_method_{args.pruning_method}")
+        clearml_logger = get_clearml_logger(project_name="GNN_pruning",
+                                            task_name=f"pruning_method_{args.pruning_method}")
 
     tb_writer = None
     best_results_file = None
     log_file = None
     if args.exps_dir is not None:
-        exps_dir = Path(args.exps_dir) / 'pyg_with_pruning' / args.dataset / args.pruning_method / str(args.random_pruning_prob)
-        if args.pruning_method == 'minhash_lsh':
+        exps_dir = Path(args.exps_dir) / 'pyg_with_pruning' / args.dataset / args.pruning_method
+        if args.pruning_method == 'random':
+            exps_dir = exps_dir / str(args.random_pruning_prob)
+        elif args.pruning_method == 'minhash_lsh':
             exps_dir = exps_dir / str(args.num_minhash_funcs)
 
         exps_dir = exps_dir / get_time_str()
@@ -189,15 +193,18 @@ def main():
     for epoch in range(1, args.epochs + 1):
         logging.info(f'=====Epoch {epoch}')
         logging.info('Training...')
-        train(model, device, train_loader, optimizer, cls_criterion=cls_criterion, tb_writer=tb_writer)
+        training_iter_per_sec = train(model, device, train_loader, optimizer, cls_criterion=cls_criterion,
+                                      tb_writer=tb_writer)
 
         logging.info('Evaluating...')
         train_perf = evaluate(model=model, device=device, loader=train_loader, evaluator=evaluator,
-                              arr_to_seq=idx2word_mapper, dataset_name=args.dataset)
+                              arr_to_seq=idx2word_mapper, dataset_name=args.dataset, return_avg_time=False)
         valid_perf = evaluate(model=model, device=device, loader=valid_loader, evaluator=evaluator,
-                              arr_to_seq=idx2word_mapper, dataset_name=args.dataset)
-        test_perf = evaluate(model=model, device=device, loader=test_loader, evaluator=evaluator,
-                             arr_to_seq=idx2word_mapper, dataset_name=args.dataset)
+                              arr_to_seq=idx2word_mapper, dataset_name=args.dataset, return_avg_time=False)
+        test_perf, test_iter_per_sec = evaluate(model=model, device=device, loader=test_loader,
+                                                evaluator=evaluator,
+                                                arr_to_seq=idx2word_mapper, dataset_name=args.dataset,
+                                                return_avg_time=True)
 
         logging.info({'Train': train_perf, 'Validation': valid_perf, 'Test': test_perf})
 
@@ -220,8 +227,13 @@ def main():
     logging.info('Test score: {}'.format(test_curve[best_val_epoch]))
 
     if best_results_file is not None:
-        torch.save({'Val': valid_curve[best_val_epoch], 'Test': test_curve[best_val_epoch],
-                    'Train': train_curve[best_val_epoch], 'BestTrain': best_train}, best_results_file)
+        with open(best_results_file, 'w') as fp:
+            json.dump({'Train': train_curve[best_val_epoch],
+                       'Val': valid_curve[best_val_epoch],
+                       'Test': test_curve[best_val_epoch],
+                       'BestTrain': best_train,
+                       r'training iter/sec': training_iter_per_sec,
+                       r'test iter/sec': test_iter_per_sec}, fp)
 
 
 if __name__ == "__main__":

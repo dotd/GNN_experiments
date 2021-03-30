@@ -19,7 +19,7 @@ from src.utils.email_utils import GmailNotifier
 from src.utils.graph_prune_utils import tg_dataset_prune
 from src.utils.logging_utils import register_logger, log_args_description, get_clearml_logger, log_command
 from src.utils.lsh_euclidean_tools import LSH
-from src.utils.minhash_tools import MinHash
+from src.utils.minhash_tools import MinHash, MinHashRep
 from src.utils.proxy_utils import set_proxy
 from tst.ogb.encoder_utils import augment_edge, decode_arr_to_seq, encode_y_to_arr, get_vocab_mapping
 from tst.ogb.exp_utils import get_loss_function, evaluate, train
@@ -100,7 +100,8 @@ def get_args():
     parser.add_argument('--send_email', default=False, action='store_true', help='Send an email when finished')
     parser.add_argument('--email_user', default=r'eitan.kosman', help='Username for sending the email')
     parser.add_argument('--email_password', default='kqdopssgpcglbwaj', help='Password for sending the email')
-    parser.add_argument('--email_to', default=r'eitan.kosman@gmail.com', help='Email of the receiver of the results email')
+    parser.add_argument('--email_to', default=r'eitan.kosman@gmail.com',
+                        help='Email of the receiver of the results email')
 
     return parser.parse_args()
 
@@ -171,21 +172,22 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruni
         if pruning_params is None:
             dim_nodes = original_dataset[0].x.shape[1]
             lsh_num_funcs = args.num_minhash_funcs
-            sparsity = 3
+            sparsity = 2
             std_of_threshold = 1
             dim_edges = original_dataset[0].edge_attr.shape[1]
-
+            minhash = MinHashRep(lsh_num_funcs, random, prime=2147483647)
             pruning_params = {
+                "minhash": minhash,
                 'nodes': {'din': dim_nodes,
                           'num_functions': lsh_num_funcs,
                           'sparsity': sparsity,
                           'std_of_threshold': std_of_threshold,
-                          'random': random},
+                          'random': random, },
                 'edges': {'din': dim_edges,
                           'num_functions': lsh_num_funcs,
                           'sparsity': sparsity,
                           'std_of_threshold': std_of_threshold,
-                          'random': random},
+                          'random': random, },
             }
             lsh_nodes = LSH(**pruning_params['nodes'])
             lsh_edges = LSH(**pruning_params['edges'])
@@ -198,6 +200,7 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruni
 
         prunning_ratio = tg_dataset_prune(tg_dataset=original_dataset,
                                           method="minhash_lsh",
+                                          minhash=pruning_params['minhash'],
                                           lsh_nodes=pruning_params['nodes']['lsh'],
                                           lsh_edges=pruning_params['edges']['lsh'], )
         print(f"prunning_ratio = {prunning_ratio}")

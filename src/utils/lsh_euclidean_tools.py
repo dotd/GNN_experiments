@@ -8,7 +8,8 @@ class LSH:
                  num_functions,
                  sparsity,
                  std_of_threshold,
-                 random):
+                 random,
+                 **kwargs):
         self.din = din
         self.num_functions = num_functions
         self.sparsity = sparsity

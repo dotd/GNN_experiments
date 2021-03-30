@@ -15,6 +15,7 @@ from torch_geometric.data import DataLoader
 from torchvision import transforms
 
 from src.utils.date_utils import get_time_str
+from src.utils.email_utils import GmailNotifier
 from src.utils.graph_prune_utils import tg_dataset_prune
 from src.utils.logging_utils import register_logger, log_args_description, get_clearml_logger, log_command
 from src.utils.lsh_euclidean_tools import LSH
@@ -96,6 +97,9 @@ def get_args():
                         default=False,
                         action='store_true',
                         help="Enable logging to ClearML server")
+    parser.add_argument('--send_email', default=False, action='store_true', help='Send an email when finished')
+    parser.add_argument('--email_user', default=r'eitan.kosman', help='Username for sending the email')
+    parser.add_argument('--email_password', default='kqdopssgpcglbwaj', help='Password for sending the email')
 
     return parser.parse_args()
 
@@ -193,8 +197,8 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruni
 
         prunning_ratio = tg_dataset_prune(tg_dataset=original_dataset,
                                           method="minhash_lsh",
-                                          lsh_nodes=pruning_params['nodes']['lsh'] ,
-                                          lsh_edges=pruning_params['edges']['lsh'] , )
+                                          lsh_nodes=pruning_params['nodes']['lsh'],
+                                          lsh_edges=pruning_params['edges']['lsh'], )
         print(f"prunning_ratio = {prunning_ratio}")
 
     elif args.pruning_method == 'random':
@@ -304,14 +308,20 @@ def main():
     logging.info('Best validation score: {}'.format(valid_curve[best_val_epoch]))
     logging.info('Test score: {}'.format(test_curve[best_val_epoch]))
 
+    best_results = {'Train': train_curve[best_val_epoch],
+                    'Val': valid_curve[best_val_epoch],
+                    'Test': test_curve[best_val_epoch],
+                    'BestTrain': best_train,
+                    r'training iter/sec': training_iter_per_sec,
+                    r'test iter/sec': test_iter_per_sec}
+
     if best_results_file is not None:
         with open(best_results_file, 'w') as fp:
-            json.dump({'Train': train_curve[best_val_epoch],
-                       'Val': valid_curve[best_val_epoch],
-                       'Test': test_curve[best_val_epoch],
-                       'BestTrain': best_train,
-                       r'training iter/sec': training_iter_per_sec,
-                       r'test iter/sec': test_iter_per_sec}, fp)
+            json.dump(best_results, fp)
+
+    if args.send_email:
+        with GmailNotifier(r'eitan.kosman', 'kqdopssgpcglbwaj') as noti:
+            noti.send_results('exps_pyg_with_pruning', args, best_results)
 
 
 if __name__ == "__main__":

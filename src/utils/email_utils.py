@@ -4,9 +4,10 @@ import sys
 
 
 class GmailNotifier:
-    def __init__(self, username, password):
+    def __init__(self, username, password, to):
         self.username = username
         self.password = password
+        self.to = to
 
     def __enter__(self):
         return self
@@ -46,7 +47,7 @@ class GmailNotifier:
         message = 'Subject: {}\n\n{}'.format(subject, message)
         with smtplib.SMTP_SSL("smtp.gmail.com", port, context=context) as server:
             server.login(my_email, self.password)
-            server.sendmail(my_email, my_email, message)
+            server.sendmail(my_email, self.to, message)
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         pass

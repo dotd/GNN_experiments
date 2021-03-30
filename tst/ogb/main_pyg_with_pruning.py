@@ -100,6 +100,7 @@ def get_args():
     parser.add_argument('--send_email', default=False, action='store_true', help='Send an email when finished')
     parser.add_argument('--email_user', default=r'eitan.kosman', help='Username for sending the email')
     parser.add_argument('--email_password', default='kqdopssgpcglbwaj', help='Password for sending the email')
+    parser.add_argument('--email_to', default=r'eitan.kosman@gmail.com', help='Email of the receiver of the results email')
 
     return parser.parse_args()
 
@@ -320,7 +321,7 @@ def main():
             json.dump(best_results, fp)
 
     if args.send_email:
-        with GmailNotifier(r'eitan.kosman', 'kqdopssgpcglbwaj') as noti:
+        with GmailNotifier(username=args.email_user, password=args.email_password, to=args.email_to) as noti:
             noti.send_results('exps_pyg_with_pruning', args, best_results)
 
 

@@ -161,6 +161,54 @@ def load_dataset(args):
     return dataset, split_idx, cls_criterion, idx2word_mapper
 
 
+def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruning_params=None):
+    if args.pruning_method == 'minhash_lsh':
+        if pruning_params is None:
+            dim_nodes = original_dataset[0].x.shape[1]
+            lsh_num_funcs = args.num_minhash_funcs
+            sparsity = 3
+            std_of_threshold = 1
+            dim_edges = original_dataset[0].edge_attr.shape[1]
+
+            pruning_params = {
+                'nodes': {'din': dim_nodes,
+                          'num_functions': lsh_num_funcs,
+                          'sparsity': sparsity,
+                          'std_of_threshold': std_of_threshold,
+                          'random': random},
+                'edges': {'din': dim_edges,
+                          'num_functions': lsh_num_funcs,
+                          'sparsity': sparsity,
+                          'std_of_threshold': std_of_threshold,
+                          'random': random},
+            }
+            lsh_nodes = LSH(**pruning_params['nodes'])
+            lsh_edges = LSH(**pruning_params['edges'])
+
+            pruning_params['nodes']['lsh'] = lsh_nodes
+            pruning_params['edges']['lsh'] = lsh_edges
+
+        print(f"lsh_nodes:\n{pruning_params['nodes']['lsh']}")
+        print(f"lsh_edges:\n{pruning_params['edges']['lsh']}")
+
+        prunning_ratio = tg_dataset_prune(tg_dataset=original_dataset,
+                                          method="minhash_lsh",
+                                          lsh_nodes=pruning_params['nodes']['lsh'] ,
+                                          lsh_edges=pruning_params['edges']['lsh'] , )
+        print(f"prunning_ratio = {prunning_ratio}")
+
+    elif args.pruning_method == 'random':
+        tg_dataset_prune(tg_dataset=original_dataset,
+                         method="random",
+                         p=args.random_pruning_prob,
+                         random=random, )
+
+    else:
+        raise NotImplementedError(f"Pruning method {args.pruning_method} not implemented")
+
+    return pruning_params
+
+
 def main():
     start_time = time()
     # Training settings
@@ -185,12 +233,16 @@ def main():
 
     old_avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
 
-    tg_dataset_prune(train_data, args.pruning_method, **prune_args)
+    # Prune the train data and cache the parameters for further usage
+    pruning_params = prune_dataset(train_data, args)
+
     avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
     logging.info(
         f"Old average number of edges: {old_avg_edge_count}. New one: {avg_edge_count}. Change: {(old_avg_edge_count - avg_edge_count) / old_avg_edge_count * 100}\%")
-    tg_dataset_prune(validation_data, args.pruning_method, **prune_args)
-    tg_dataset_prune(test_data, args.pruning_method, **prune_args)
+
+    prune_dataset(validation_data, args, pruning_params=pruning_params)
+    prune_dataset(test_data, args, pruning_params=pruning_params)
+
     train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True,
                               num_workers=args.num_workers)
     valid_loader = DataLoader(validation_data, batch_size=args.batch_size, shuffle=False,

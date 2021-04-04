@@ -90,6 +90,8 @@ def get_args():
                         help='Maximum sequence length to predict -- for ogbgb-code (default: 5)')
     parser.add_argument('--num_vocab', type=int, default=5000,
                         help='The number of vocabulary used for sequence prediction (default: 5000)')
+    parser.add_argument('--test', action="store_true", default=False,
+                        help="Run in test mode", )
 
     # logging params:
     parser.add_argument('--exps_dir', type=str, help='Target directory to save logging files')
@@ -168,13 +170,14 @@ def load_dataset(args):
 
 
 def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruning_params=None):
+
     if args.pruning_method == 'minhash_lsh':
         if pruning_params is None:
-            dim_nodes = original_dataset[0].x.shape[1]
+            dim_nodes = original_dataset[0].x.shape[1] if len(original_dataset[0].x.shape) == 2 else 0
             lsh_num_funcs = args.num_minhash_funcs
             sparsity = 2
             std_of_threshold = 1
-            dim_edges = original_dataset[0].edge_attr.shape[1]
+            dim_edges = original_dataset[0].edge_attr.shape[1] if len(original_dataset[0].edge_attr.shape) == 2 else 0
             minhash = MinHashRep(lsh_num_funcs, random, prime=2147483647)
             pruning_params = {
                 "minhash": minhash,
@@ -189,8 +192,8 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruni
                           'std_of_threshold': std_of_threshold,
                           'random': random, },
             }
-            lsh_nodes = LSH(**pruning_params['nodes'])
-            lsh_edges = LSH(**pruning_params['edges'])
+            lsh_nodes = LSH(**pruning_params['nodes']) if dim_nodes != 0 else None
+            lsh_edges = LSH(**pruning_params['edges']) if dim_edges != 0 else None
 
             pruning_params['nodes']['lsh'] = lsh_nodes
             pruning_params['edges']['lsh'] = lsh_edges
@@ -232,12 +235,20 @@ def main():
     dataset, split_idx, cls_criterion, idx2word_mapper = load_dataset(args)
 
     # Get pruning arguments
-    prune_args = get_prune_args(pruning_method=args.pruning_method, num_minhash_funcs=args.num_minhash_funcs,
-                                random_pruning_prob=args.random_pruning_prob, node_dim=dataset[0].x.shape[1])
+    # prune_args = get_prune_args(pruning_method=args.pruning_method, num_minhash_funcs=args.num_minhash_funcs,
+    #                             random_pruning_prob=args.random_pruning_prob, node_dim=dataset[0].x.shape[1])
 
-    train_data = list(dataset[split_idx["train"]])
-    validation_data = list(dataset[split_idx["valid"]])
-    test_data = list(dataset[split_idx["test"]])
+    train_idx = split_idx["train"]
+    val_idx = split_idx["valid"]
+    test_idx = split_idx["test"]
+    if args.test:
+        train_idx = train_idx[:10]
+        val_idx = val_idx[:10]
+        test_idx = test_idx[:10]
+
+    train_data = list(dataset[train_idx])
+    validation_data = list(dataset[val_idx])
+    test_data = list(dataset[test_idx])
 
     old_avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
 

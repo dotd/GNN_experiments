@@ -5,7 +5,7 @@ from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 
 
-def train(model, device, loader, optimizer, cls_criterion, tb_writer=None):
+def train(model, dataset, device, loader, optimizer, cls_criterion, tb_writer=None):
     model.train()
 
     start_time = time.time()
@@ -26,11 +26,22 @@ def train(model, device, loader, optimizer, cls_criterion, tb_writer=None):
                     loss += cls_criterion(pred[i].to(torch.float32), batch.y_arr[:, i])
                 loss = loss / len(pred)
             elif hasattr(batch, 'y'):
-                # ignore nan targets (unlabeled) when computing training loss.
-                is_labeled = batch.y == batch.y
-                # loss = cls_criterion(pred.to(torch.float32)[is_labeled], batch.y.view(-1, ).to(torch.float32)[is_labeled])
-                # loss = cls_criterion(pred.to(torch.float32)[is_labeled], batch.y.view(-1, )[is_labeled])
-                loss = cls_criterion(pred.to(torch.float32)[is_labeled], batch.y.to(torch.float32)[is_labeled])
+                if dataset.name == 'ogbg-ppa':
+                    loss = cls_criterion(pred.to(torch.float32),
+                                         batch.y.view(-1,))
+                elif dataset.name in ['ogbg-molhiv', 'ogbg-molpcba']:
+                    # ignore nan targets (unlabeled) when computing training loss.
+                    is_labeled = batch.y == batch.y
+                    # loss = cls_criterion(pred.to(torch.float32)[is_labeled], batch.y.view(-1, ).to(torch.float32)[is_labeled])
+                    # loss = cls_criterion(pred.to(torch.float32)[is_labeled], batch.y.view(-1, )[is_labeled])
+                    # is_labeled_pred = is_labeled.repeat(1, pred.shape[1])
+                    # loss = cls_criterion(pred.to(torch.float32)[is_labeled], batch.y.to(torch.float32)[is_labeled])
+                    is_labeled = batch.y == batch.y
+                    if "classification" in dataset.task_type:
+                        loss = cls_criterion(pred.to(torch.float32)[is_labeled], batch.y.to(torch.float32)[is_labeled])
+                    # else:
+                    #     loss = reg_criterion(pred.to(torch.float32)[is_labeled], batch.y.to(torch.float32)[is_labeled])
+
             else:
                 raise AttributeError("Batch does not contain either a y-member or a y_arr-member")
 

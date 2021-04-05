@@ -4,8 +4,8 @@ start_time = time.time()
 from torch_geometric.data import DataLoader # noqa
 from torch_geometric.datasets import GNNBenchmarkDataset # noqa
 
-from tst.torch_geometric.tst_torch_geometric1 import GCN # noqa
-from tst.torch_geometric.tst_torch_geometric1 import train, func_test # noqa
+from tst.torch_geometric_local.tst_torch_geometric1 import GCN # noqa
+from tst.torch_geometric_local.tst_torch_geometric1 import train, func_test # noqa
 from src.utils.proxy_utils import set_proxy
 
 

@@ -234,17 +234,18 @@ def main():
 
     dataset, split_idx, cls_criterion, idx2word_mapper = load_dataset(args)
 
-    # Get pruning arguments
-    # prune_args = get_prune_args(pruning_method=args.pruning_method, num_minhash_funcs=args.num_minhash_funcs,
-    #                             random_pruning_prob=args.random_pruning_prob, node_dim=dataset[0].x.shape[1])
+    prune_args = get_prune_args(pruning_method=args.pruning_method,
+                                num_minhash_funcs=args.num_minhash_funcs,
+                                random_pruning_prob=args.random_pruning_prob,
+                                node_dim=dataset[0].x.shape[1] if len(dataset[0].x.shape) == 2 else 0)
 
     train_idx = split_idx["train"]
     val_idx = split_idx["valid"]
     test_idx = split_idx["test"]
     if args.test:
-        train_idx = train_idx[:10]
-        val_idx = val_idx[:10]
-        test_idx = test_idx[:10]
+        train_idx = train_idx[:100]
+        val_idx = val_idx[:100]
+        test_idx = test_idx[:100]
 
     train_data = list(dataset[train_idx])
     validation_data = list(dataset[val_idx])
@@ -258,7 +259,7 @@ def main():
     avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
     logging.info(
         f"Old average number of edges: {old_avg_edge_count}. New one: {avg_edge_count}. Change: {(old_avg_edge_count - avg_edge_count) / old_avg_edge_count * 100}\%")
-
+    #
     prune_dataset(validation_data, args, pruning_params=pruning_params)
     prune_dataset(test_data, args, pruning_params=pruning_params)
 
@@ -280,7 +281,7 @@ def main():
     evaluator = Evaluator(args.dataset)
     model = create_model(dataset=dataset, emb_dim=args.emb_dim,
                          dropout_ratio=args.drop_ratio, device=device, num_layers=args.num_layer,
-                         max_seq_len=args.max_seq_len, num_vocab=args.num_vocab)
+                         max_seq_len=args.max_seq_len, num_vocab=args.num_vocab, model_type=args.gnn)
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     valid_curve = []
@@ -290,7 +291,7 @@ def main():
     for epoch in range(1, args.epochs + 1):
         logging.info(f'=====Epoch {epoch}')
         logging.info('Training...')
-        training_iter_per_sec = train(model, device, train_loader, optimizer, cls_criterion=cls_criterion,
+        training_iter_per_sec = train(model, dataset, device, train_loader, optimizer, cls_criterion=cls_criterion,
                                       tb_writer=tb_writer)
 
         logging.info('Evaluating...')

@@ -10,6 +10,7 @@ from ogb.graphproppred import PygGraphPropPredDataset
 from ogb.graphproppred.mol_encoder import AtomEncoder, BondEncoder
 from tst.ogb.encoder_utils import ASTNodeEncoder, get_vocab_mapping
 from tst.ogb.gcn import GCN
+from tst.ogb.gnn import GNN
 
 
 def get_output_dimension(dataset: PygGraphPropPredDataset):
@@ -29,7 +30,7 @@ def get_output_dimension(dataset: PygGraphPropPredDataset):
 
 
 def create_model(dataset: PygGraphPropPredDataset, emb_dim: int, dropout_ratio: float, device: str, num_layers: int,
-                 max_seq_len: int, num_vocab: int) -> torch.nn.Module:
+                 max_seq_len: int, num_vocab: int, model_type: str) -> torch.nn.Module:
     """
     Create a GCN model for the given dataset
     :param dataset:
@@ -71,9 +72,24 @@ def create_model(dataset: PygGraphPropPredDataset, emb_dim: int, dropout_ratio: 
     elif dataset.name == "ogbg-ppa":
         node_encoder = torch.nn.Embedding(1, emb_dim)
         edge_encoder_ctor = partial(torch.nn.Linear, 7)
-        model = GCN(num_classes=dataset.num_tasks, num_layer=num_layers,
-                    emb_dim=emb_dim, drop_ratio=dropout_ratio,
-                    node_encoder=node_encoder, edge_encoder_ctor=edge_encoder_ctor).to(device)
+        # model = GCN(num_classes=dataset.num_classes, num_layer=num_layers,
+        #             emb_dim=emb_dim, drop_ratio=dropout_ratio,
+        #             node_encoder=node_encoder, edge_encoder_ctor=edge_encoder_ctor).to(device)
+
+        if model_type == 'gin':
+            model = GNN(gnn_type='gin', num_class=dataset.num_classes, num_layer=num_layers, emb_dim=emb_dim,
+                        drop_ratio=dropout_ratio, virtual_node=False).to(device)
+        elif model_type == 'gin-virtual':
+            model = GNN(gnn_type='gin', num_class=dataset.num_classes, num_layer=num_layers, emb_dim=emb_dim,
+                        drop_ratio=dropout_ratio, virtual_node=True).to(device)
+        elif model_type == 'gcn':
+            model = GNN(gnn_type='gcn', num_class=dataset.num_classes, num_layer=num_layers, emb_dim=emb_dim,
+                        drop_ratio=dropout_ratio, virtual_node=False).to(device)
+        elif model_type == 'gcn-virtual':
+            model = GNN(gnn_type='gcn', num_class=dataset.num_classes, num_layer=num_layers, emb_dim=emb_dim,
+                        drop_ratio=dropout_ratio, virtual_node=True).to(device)
+        else:
+            raise ValueError('Invalid GNN type')
     else:
         raise ValueError("Used an invalid dataset name")
     return model

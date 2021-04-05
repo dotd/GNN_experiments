@@ -4,9 +4,9 @@ import time
 start_time = time.time()
 
 import src.synthetic.random_graph_dataset as rgd
-from tst.torch_geometric_local.tst_torch_geometric1 import GCN
+from tst.torch_geometric.tst_torch_geometric1 import GCN
 import src.synthetic.synthetic_utils as su
-from tst.torch_geometric_local.tst_torch_geometric1 import train, func_test
+from tst.torch_geometric.tst_torch_geometric1 import train, func_test
 from torch_geometric.data import DataLoader
 
 

@@ -6,9 +6,9 @@ import torch
 from torch_geometric.data import DataLoader
 
 from src.synthetic.random_graph_dataset import generate_graphs_dataset
-from tst.torch_geometric_local.tst_torch_geometric1 import GCN
+from tst.torch_geometric.tst_torch_geometric1 import GCN
 from src.synthetic.synthetic_utils import transform_dataset_to_torch_geometric_dataset
-from tst.torch_geometric_local.tst_torch_geometric1 import train, func_test
+from tst.torch_geometric.tst_torch_geometric1 import train, func_test
 
 
 def tst_classify_synthetic():

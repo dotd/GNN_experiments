@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-
+from tqdm import tqdm
 
 
 def get_adjacent_edges_of_nodes(num_nodes, edge_index, edge_attr):
@@ -149,11 +149,13 @@ def tg_sample_prune_edges_by_minhash_lsh(tg_sample, minhash, lsh_nodes, lsh_edge
 
 def tg_dataset_prune_edges_by_minhash_lsh(tg_dataset, minhash, lsh_nodes, lsh_edges):
     ratios = list()
+    bar = tqdm(total=len(tg_dataset))
     for i, tg_sample in enumerate(tg_dataset):
         original_number_of_edges = tg_sample.edge_index.shape[1]
         tg_sample_prune_edges_by_minhash_lsh(tg_sample, minhash, lsh_nodes, lsh_edges)
         new_number_of_edges = tg_sample.edge_index.shape[1]
         ratios.append(new_number_of_edges / original_number_of_edges)
+        bar.update(1)
     return np.mean(ratios)
 
 
@@ -167,8 +169,10 @@ def tg_sample_prune_random(tg_sample, p, random):
 
 
 def tg_dataset_prune_random(tg_dataset, p, random):
+    bar = tqdm(total=len(tg_dataset))
     for i, tg_sample in enumerate(tg_dataset):
         tg_sample_prune_random(tg_sample, p, random)
+        bar.update(1)
 
 
 def tg_dataset_prune(tg_dataset, method, **kwargs):

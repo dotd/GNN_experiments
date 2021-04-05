@@ -70,12 +70,6 @@ def create_model(dataset: PygGraphPropPredDataset, emb_dim: int, dropout_ratio: 
                     edge_encoder_ctor=edge_encoder_ctor, num_layer=num_layers, emb_dim=emb_dim,
                     drop_ratio=dropout_ratio).to(device)
     elif dataset.name == "ogbg-ppa":
-        node_encoder = torch.nn.Embedding(1, emb_dim)
-        edge_encoder_ctor = partial(torch.nn.Linear, 7)
-        # model = GCN(num_classes=dataset.num_classes, num_layer=num_layers,
-        #             emb_dim=emb_dim, drop_ratio=dropout_ratio,
-        #             node_encoder=node_encoder, edge_encoder_ctor=edge_encoder_ctor).to(device)
-
         if model_type == 'gin':
             model = GNN(gnn_type='gin', num_class=dataset.num_classes, num_layer=num_layers, emb_dim=emb_dim,
                         drop_ratio=dropout_ratio, virtual_node=False).to(device)

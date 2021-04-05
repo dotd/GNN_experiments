@@ -170,7 +170,6 @@ def load_dataset(args):
 
 
 def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruning_params=None):
-
     if args.pruning_method == 'minhash_lsh':
         if pruning_params is None:
             dim_nodes = original_dataset[0].x.shape[1] if len(original_dataset[0].x.shape) == 2 else 0

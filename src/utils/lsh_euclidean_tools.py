@@ -32,12 +32,8 @@ class LSH:
         return np.concatenate(signatures, axis=0).astype(int)
 
     def sign_vectors(self, vecs):
-        try:
-            signatures = np.array([vecs[:, self.indices[i]] <= self.lsh_thresholds[i] for i in range(self.num_functions)])
-        except Exception as e:
-            pass
-        # return np.concatenate(signatures, axis=0).astype(int)
-        return signatures.transpose((1, 0, 2)).reshape(signatures.shape[1], -1).astype(int)
+        signatures = np.array([vecs[:, self.indices[i]] <= self.lsh_thresholds[i] for i in range(self.num_functions)])
+        return signatures.transpose((1, 0, 2)).reshape(signatures.shape[1], -1) + 0
 
     def __str__(self):
         s = list()

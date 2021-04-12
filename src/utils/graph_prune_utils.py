@@ -30,8 +30,8 @@ def get_adjacent_edges_of_nodes(num_nodes, edge_index, edge_attr):
     # start_time = time.time()
     edge_index_from = edge_index[0, :]
     edge_index_to = edge_index[1, :]
-    adjacent_nodes = {i: edge_index_to[edge_index_from == i] for i in range(num_nodes)}
-    adjacent_edges_features = {i: edge_attr[edge_index_from == i, :] for i in range(num_nodes)}
+    adjacent_nodes = [edge_index_to[edge_index_from == i] for i in range(num_nodes)]
+    adjacent_edges_features = [edge_attr[edge_index_from == i, :] for i in range(num_nodes)]
     # print(f"time: {time.time() - start_time}")
 
     return adjacent_nodes, adjacent_edges_features
@@ -126,7 +126,7 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
             rep_tensor = lsh_nodes_signatures[n].repeat(len(adjacent_nodes_local))
 
         rep_dim = rep_tensor.shape[-1]
-        rep_flat_str = ''.join(rep_tensor.flatten().astype(str))
+        rep_flat_str = ''.join(map(str, rep_tensor.flatten()))
         adjacent_reps = chunk_string(rep_flat_str, rep_dim)
 
         # for idx, node in enumerate(adjacent_nodes_local):
@@ -177,8 +177,8 @@ def tg_sample_prune_edges_by_minhash_lsh(tg_sample, minhash, lsh_nodes, lsh_edge
     old_x_numpy = tg_sample.x.numpy()
 
     # Do the prunning
-    # pr = cProfile.Profile()
-    # pr.enable()
+    pr = cProfile.Profile()
+    pr.enable()
     new_edges, new_attr = _prune_edges_by_minhash_lsh_helper(num_nodes,
                                                              edge_list=old_edge_index,
                                                              edge_attrs=old_edge_attr,
@@ -186,8 +186,8 @@ def tg_sample_prune_edges_by_minhash_lsh(tg_sample, minhash, lsh_nodes, lsh_edge
                                                              minhash=minhash,
                                                              lsh_nodes=lsh_nodes,
                                                              lsh_edges=lsh_edges)
-    # pr.disable()
-    # pr.print_stats()
+    pr.disable()
+    pr.print_stats()
     tg_sample.edge_index = new_edges
     tg_sample.edge_attr = new_attr
 

@@ -114,7 +114,7 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
         # adjacent_meta = list()
 
         # Going over the adjacent for each node and make the mappings.
-        adjacent_meta = [(n, node, edge_attrs[idx]) for idx, node in enumerate(adjacent_nodes_local)]
+        adjacent_meta = [((n, node.item()), edge_attrs[idx]) for idx, node in enumerate(adjacent_nodes_local)]
         signatures_edge_attrs = lsh_edges.sign_vectors(edge_attrs.numpy()) if lsh_edges is not None else None
 
         if lsh_nodes is not None and lsh_edges is not None:

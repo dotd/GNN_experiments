@@ -177,8 +177,8 @@ def tg_sample_prune_edges_by_minhash_lsh(tg_sample, minhash, lsh_nodes, lsh_edge
     old_x_numpy = tg_sample.x.numpy()
 
     # Do the prunning
-    pr = cProfile.Profile()
-    pr.enable()
+    # pr = cProfile.Profile()
+    # pr.enable()
     new_edges, new_attr = _prune_edges_by_minhash_lsh_helper(num_nodes,
                                                              edge_list=old_edge_index,
                                                              edge_attrs=old_edge_attr,
@@ -186,8 +186,8 @@ def tg_sample_prune_edges_by_minhash_lsh(tg_sample, minhash, lsh_nodes, lsh_edge
                                                              minhash=minhash,
                                                              lsh_nodes=lsh_nodes,
                                                              lsh_edges=lsh_edges)
-    pr.disable()
-    pr.print_stats()
+    # pr.disable()
+    # pr.print_stats()
     tg_sample.edge_index = new_edges
     tg_sample.edge_attr = new_attr
 

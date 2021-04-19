@@ -5,10 +5,12 @@ from functools import partial
 from pathlib import Path
 from time import time
 from typing import Dict
+import pickle
 
 import numpy as np
 import torch
 import torch.optim as optim
+from DriveUtils.PackageUtils.FileUtils import register_dir
 from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
 from torch.utils.tensorboard import SummaryWriter
 from torch_geometric.data import DataLoader
@@ -16,6 +18,7 @@ from torchvision import transforms
 
 from src.utils.date_utils import get_time_str
 from src.utils.email_utils import GmailNotifier
+from src.utils.file_utils import create_folder_safe
 from src.utils.graph_prune_utils import tg_dataset_prune
 from src.utils.logging_utils import register_logger, log_args_description, get_clearml_logger, log_command
 from src.utils.lsh_euclidean_tools import LSH
@@ -169,6 +172,41 @@ def load_dataset(args):
     return dataset, split_idx, cls_criterion, idx2word_mapper
 
 
+def prune_datasets(train_data, validation_data, test_data, args):
+    cached_datasets_dir = Path('dataset') / args.dataset / 'pruned' / args.pruning_method
+    if args.pruning_method == 'random':
+        cached_datasets_dir = cached_datasets_dir / str(args.random_pruning_prob)
+    elif args.pruning_method == 'minhash_lsh':
+        cached_datasets_dir = cached_datasets_dir / str(args.num_minhash_funcs)
+
+    train_path = cached_datasets_dir / 'train.file'
+    validation_path = cached_datasets_dir / 'validation.file'
+    test_path = cached_datasets_dir / 'test.file'
+    if cached_datasets_dir.exists():
+        logging.info(f"Loading pruned dataset from {cached_datasets_dir}")
+        with open(train_path, 'rb') as fp:
+            train_data = pickle.load(fp)
+        with open(validation_path, 'rb') as fp:
+            validation_data = pickle.load(fp)
+        with open(test_path, 'rb') as fp:
+            test_data = pickle.load(fp)
+
+    else:
+        logging.info("Pruning datasets...")
+        cached_datasets_dir.mkdir(parents=True, exist_ok=True)
+        pruning_params = prune_dataset(train_data, args)
+        prune_dataset(validation_data, args, pruning_params=pruning_params)
+        prune_dataset(test_data, args, pruning_params=pruning_params)
+        with open(train_path, 'wb') as fp:
+            pickle.dump(test_data, fp)
+        with open(validation_path, 'wb') as fp:
+            pickle.dump(validation_data, fp)
+        with open(test_path, 'wb') as fp:
+            pickle.dump(test_data, fp)
+
+    return train_data, validation_data, test_data
+
+
 def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruning_params=None):
     if args.pruning_method == 'minhash_lsh':
         if pruning_params is None:
@@ -253,14 +291,15 @@ def main():
     old_avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
 
     # Prune the train data and cache the parameters for further usage
-    pruning_params = prune_dataset(train_data, args)
+    train_data, validation_data, test_data = prune_datasets(train_data, validation_data, test_data, args)
+    # pruning_params = prune_dataset(train_data, args)
 
     avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
     logging.info(
         f"Old average number of edges: {old_avg_edge_count}. New one: {avg_edge_count}. Change: {(old_avg_edge_count - avg_edge_count) / old_avg_edge_count * 100}\%")
     #
-    prune_dataset(validation_data, args, pruning_params=pruning_params)
-    prune_dataset(test_data, args, pruning_params=pruning_params)
+    # prune_dataset(validation_data, args, pruning_params=pruning_params)
+    # prune_dataset(test_data, args, pruning_params=pruning_params)
 
     train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True,
                               num_workers=args.num_workers)

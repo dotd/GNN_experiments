@@ -1,3 +1,5 @@
+import cProfile
+
 import numpy as np
 
 # Taken from
@@ -136,7 +138,6 @@ class MinHashRep:
                 if new_val < minimal_value.value:
                     minimal_value = MH(new_val, val[1], meta)
             result.append(minimal_value)
-
         # the returned vector represents the minimum hash of the set s
         return result
 

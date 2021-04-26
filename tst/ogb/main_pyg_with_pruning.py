@@ -5,12 +5,10 @@ from functools import partial
 from pathlib import Path
 from time import time
 from typing import Dict
-import pickle
 
 import numpy as np
 import torch
 import torch.optim as optim
-from DriveUtils.PackageUtils.FileUtils import register_dir
 from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
 from torch.utils.tensorboard import SummaryWriter
 from torch_geometric.data import DataLoader
@@ -18,7 +16,6 @@ from torchvision import transforms
 
 from src.utils.date_utils import get_time_str
 from src.utils.email_utils import GmailNotifier
-from src.utils.file_utils import create_folder_safe
 from src.utils.graph_prune_utils import tg_dataset_prune
 from src.utils.logging_utils import register_logger, log_args_description, get_clearml_logger, log_command
 from src.utils.lsh_euclidean_tools import LSH
@@ -273,9 +270,6 @@ def main():
     avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
     logging.info(
         f"Old average number of edges: {old_avg_edge_count}. New one: {avg_edge_count}. Change: {(old_avg_edge_count - avg_edge_count) / old_avg_edge_count * 100}\%")
-    #
-    # prune_dataset(validation_data, args, pruning_params=pruning_params)
-    # prune_dataset(test_data, args, pruning_params=pruning_params)
 
     train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True,
                               num_workers=args.num_workers)

@@ -1,10 +1,7 @@
-import cProfile
-
 import numpy as np
 
 # Taken from
 # https://stackoverflow.com/questions/14533420/can-you-suggest-a-good-minhash-implementation
-from profilehooks import timecall
 
 
 class MinHash:

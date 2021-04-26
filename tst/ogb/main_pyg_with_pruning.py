@@ -248,11 +248,6 @@ def main():
 
     dataset, split_idx, cls_criterion, idx2word_mapper = load_dataset(args)
 
-    # prune_args = get_prune_args(pruning_method=args.pruning_method,
-    #                             num_minhash_funcs=args.num_minhash_funcs,
-    #                             random_pruning_prob=args.random_pruning_prob,
-    #                             node_dim=dataset[0].x.shape[1] if len(dataset[0].x.shape) == 2 else 0)
-
     train_idx = split_idx["train"]
     val_idx = split_idx["valid"]
     test_idx = split_idx["test"]

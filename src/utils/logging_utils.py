@@ -31,7 +31,7 @@ def log_args_description(args):
     """
     args_header = """
     ====== All settings used ======:\n
-    """
+"""
 
     s = ""
     for k, v in sorted(vars(args).items()):

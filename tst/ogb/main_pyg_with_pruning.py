@@ -95,6 +95,7 @@ def get_args():
                         help='The number of vocabulary used for sequence prediction (default: 5000)')
     parser.add_argument('--test', action="store_true", default=False,
                         help="Run in test mode", )
+    parser.add_argument('--sample', type=float, default=1, help='The size of the sampled dataset')
 
     # logging params:
     parser.add_argument('--exps_dir', type=str, help='Target directory to save logging files')
@@ -136,10 +137,6 @@ def register_logging_files(args):
     log_command()
     log_args_description(args)
 
-    register_logger(log_file=log_file, stdout=True)
-    log_command()
-    log_args_description(args)
-
     if args.enable_clearml_logger:
         clearml_logger = get_clearml_logger(project_name="GNN_pruning",
                                             task_name=f"pruning_method_{args.pruning_method}")
@@ -173,36 +170,56 @@ def load_dataset(args):
 
 
 def prune_datasets(train_data, validation_data, test_data, args):
-    cached_datasets_dir = Path('dataset') / args.dataset / 'pruned' / args.pruning_method
+    cached_datasets_dir = Path(args.exps_dir) / 'dataset' / args.dataset / 'pruned' / args.pruning_method
     if args.pruning_method == 'random':
         cached_datasets_dir = cached_datasets_dir / str(args.random_pruning_prob)
     elif args.pruning_method == 'minhash_lsh':
         cached_datasets_dir = cached_datasets_dir / str(args.num_minhash_funcs)
 
-    train_path = cached_datasets_dir / 'train.file'
-    validation_path = cached_datasets_dir / 'validation.file'
-    test_path = cached_datasets_dir / 'test.file'
-    if cached_datasets_dir.exists():
-        logging.info(f"Loading pruned dataset from {cached_datasets_dir}")
-        with open(train_path, 'rb') as fp:
-            train_data = pickle.load(fp)
-        with open(validation_path, 'rb') as fp:
-            validation_data = pickle.load(fp)
-        with open(test_path, 'rb') as fp:
-            test_data = pickle.load(fp)
+    # train_path = cached_datasets_dir / 'train.file'
+    # validation_path = cached_datasets_dir / 'validation.file'
+    # test_path = cached_datasets_dir / 'test.file'
+    # if cached_datasets_dir.exists():
+    #     # free the memory, this is a must
+    #     del train_data
+    #     del validation_data
+    #     del test_data
+    #
+    #     logging.info(f"Loading pruned train dataset from {train_path}")
+    #
+    #     with open(train_path, 'rb') as fp:
+    #         train_data = pickle.load(fp)
+    #
+    #     logging.info(f"Loading pruned validation dataset from {validation_path}")
+    #     with open(validation_path, 'rb') as fp:
+    #         validation_data = pickle.load(fp)
+    #
+    #     logging.info(f"Loading pruned test dataset from {test_path}")
+    #     with open(test_path, 'rb') as fp:
+    #         test_data = pickle.load(fp)
+    #
+    # else:
+    logging.info("Pruning datasets...")
 
-    else:
-        logging.info("Pruning datasets...")
-        cached_datasets_dir.mkdir(parents=True, exist_ok=True)
-        pruning_params = prune_dataset(train_data, args)
-        prune_dataset(validation_data, args, pruning_params=pruning_params)
-        prune_dataset(test_data, args, pruning_params=pruning_params)
-        with open(train_path, 'wb') as fp:
-            pickle.dump(test_data, fp)
-        with open(validation_path, 'wb') as fp:
-            pickle.dump(validation_data, fp)
-        with open(test_path, 'wb') as fp:
-            pickle.dump(test_data, fp)
+
+    logging.info("Pruning training data...")
+    pruning_params = prune_dataset(train_data, args)
+    # logging.info(f"Saving pruned train dataset to {train_path}")
+    # cached_datasets_dir.mkdir(parents=True, exist_ok=True)
+    # with open(train_path, 'wb') as fp:
+    #     pickle.dump(train_data, fp, protocol=pickle.HIGHEST_PROTOCOL)
+
+    logging.info("Pruning validation data...")
+    prune_dataset(validation_data, args, pruning_params=pruning_params)
+    # logging.info(f"Saving pruned validation dataset to {validation_path}")
+    # with open(validation_path, 'wb') as fp:
+    #     pickle.dump(validation_data, fp, protocol=pickle.HIGHEST_PROTOCOL)
+
+    logging.info("Pruning test data...")
+    prune_dataset(test_data, args, pruning_params=pruning_params)
+    # logging.info(f"Saving pruned test dataset to {test_path}")
+    # with open(test_path, 'wb') as fp:
+    #     pickle.dump(test_data, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
     return train_data, validation_data, test_data
 
@@ -271,10 +288,10 @@ def main():
 
     dataset, split_idx, cls_criterion, idx2word_mapper = load_dataset(args)
 
-    prune_args = get_prune_args(pruning_method=args.pruning_method,
-                                num_minhash_funcs=args.num_minhash_funcs,
-                                random_pruning_prob=args.random_pruning_prob,
-                                node_dim=dataset[0].x.shape[1] if len(dataset[0].x.shape) == 2 else 0)
+    # prune_args = get_prune_args(pruning_method=args.pruning_method,
+    #                             num_minhash_funcs=args.num_minhash_funcs,
+    #                             random_pruning_prob=args.random_pruning_prob,
+    #                             node_dim=dataset[0].x.shape[1] if len(dataset[0].x.shape) == 2 else 0)
 
     train_idx = split_idx["train"]
     val_idx = split_idx["valid"]
@@ -283,6 +300,11 @@ def main():
         train_idx = train_idx[:100]
         val_idx = val_idx[:100]
         test_idx = test_idx[:100]
+    elif args.sample != 1:
+        logging.info(f"Sampling {args.sample * 100}% of the dataset")
+        train_idx = list(np.random.choice(train_idx, int(len(train_idx) * args.sample), replace=False))
+        val_idx = list(np.random.choice(val_idx, int(len(val_idx) * args.sample), replace=False))
+        test_idx = list(np.random.choice(test_idx, int(len(test_idx) * args.sample), replace=False))
 
     train_data = list(dataset[train_idx])
     validation_data = list(dataset[val_idx])

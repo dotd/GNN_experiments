@@ -269,7 +269,6 @@ def main():
 
     # Prune the train data and cache the parameters for further usage
     train_data, validation_data, test_data = prune_datasets(train_data, validation_data, test_data, args)
-    # pruning_params = prune_dataset(train_data, args)
 
     avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
     logging.info(

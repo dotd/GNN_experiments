@@ -47,7 +47,6 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
     :param prunning_mode: There is "all" for node_attr & edge_attr, "node" for only local nodes, and "edge" for only adjacent edges
     :return:
     """
-    import cProfile
     # Num edges
     num_edges = edge_list.shape[1]
     # The pruned list of edges

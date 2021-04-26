@@ -170,56 +170,16 @@ def load_dataset(args):
 
 
 def prune_datasets(train_data, validation_data, test_data, args):
-    cached_datasets_dir = Path(args.exps_dir) / 'dataset' / args.dataset / 'pruned' / args.pruning_method
-    if args.pruning_method == 'random':
-        cached_datasets_dir = cached_datasets_dir / str(args.random_pruning_prob)
-    elif args.pruning_method == 'minhash_lsh':
-        cached_datasets_dir = cached_datasets_dir / str(args.num_minhash_funcs)
-
-    # train_path = cached_datasets_dir / 'train.file'
-    # validation_path = cached_datasets_dir / 'validation.file'
-    # test_path = cached_datasets_dir / 'test.file'
-    # if cached_datasets_dir.exists():
-    #     # free the memory, this is a must
-    #     del train_data
-    #     del validation_data
-    #     del test_data
-    #
-    #     logging.info(f"Loading pruned train dataset from {train_path}")
-    #
-    #     with open(train_path, 'rb') as fp:
-    #         train_data = pickle.load(fp)
-    #
-    #     logging.info(f"Loading pruned validation dataset from {validation_path}")
-    #     with open(validation_path, 'rb') as fp:
-    #         validation_data = pickle.load(fp)
-    #
-    #     logging.info(f"Loading pruned test dataset from {test_path}")
-    #     with open(test_path, 'rb') as fp:
-    #         test_data = pickle.load(fp)
-    #
-    # else:
     logging.info("Pruning datasets...")
-
 
     logging.info("Pruning training data...")
     pruning_params = prune_dataset(train_data, args)
-    # logging.info(f"Saving pruned train dataset to {train_path}")
-    # cached_datasets_dir.mkdir(parents=True, exist_ok=True)
-    # with open(train_path, 'wb') as fp:
-    #     pickle.dump(train_data, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
     logging.info("Pruning validation data...")
     prune_dataset(validation_data, args, pruning_params=pruning_params)
-    # logging.info(f"Saving pruned validation dataset to {validation_path}")
-    # with open(validation_path, 'wb') as fp:
-    #     pickle.dump(validation_data, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
     logging.info("Pruning test data...")
     prune_dataset(test_data, args, pruning_params=pruning_params)
-    # logging.info(f"Saving pruned test dataset to {test_path}")
-    # with open(test_path, 'wb') as fp:
-    #     pickle.dump(test_data, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
     return train_data, validation_data, test_data
 

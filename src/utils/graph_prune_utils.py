@@ -76,12 +76,14 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
         signatures_edge_attrs = lsh_edges.sign_vectors(edge_attrs.numpy()) if lsh_edges is not None else None
 
         if lsh_nodes is not None and lsh_edges is not None:
-            node_rep = lsh_nodes_signatures[n].repeat(repeats=len(adjacent_nodes_local), axis=0)
+            node_rep = lsh_nodes_signatures[n][np.newaxis,...].repeat(repeats=len(adjacent_nodes_local), axis=0)
             rep_tensor = np.hstack([node_rep, signatures_edge_attrs])
         elif lsh_nodes is None:
             rep_tensor = signatures_edge_attrs
+        elif lsh_edges is None:
+            rep_tensor = lsh_nodes_signatures[n][np.newaxis,...].repeat(repeats=len(adjacent_nodes_local), axis=0)
         else:
-            rep_tensor = lsh_nodes_signatures[n].repeat(repeats=len(adjacent_nodes_local), axis=0)
+            raise Exception("No features in the graph")
 
         rep_dim = rep_tensor.shape[-1]
         rep_flat_str = ''.join(map(str, rep_tensor.flatten()))

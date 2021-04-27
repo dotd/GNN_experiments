@@ -92,6 +92,7 @@ def get_args():
                         help='The number of vocabulary used for sequence prediction (default: 5000)')
     parser.add_argument('--test', action="store_true", default=False,
                         help="Run in test mode", )
+    parser.add_argument('--sample', type=float, default=1, help='The size of the sampled dataset')
 
     # logging params:
     parser.add_argument('--exps_dir', type=str, help='Target directory to save logging files')
@@ -133,10 +134,6 @@ def register_logging_files(args):
     log_command()
     log_args_description(args)
 
-    register_logger(log_file=log_file, stdout=True)
-    log_command()
-    log_args_description(args)
-
     if args.enable_clearml_logger:
         clearml_logger = get_clearml_logger(project_name="GNN_pruning",
                                             task_name=f"pruning_method_{args.pruning_method}")
@@ -167,6 +164,21 @@ def load_dataset(args):
         idx2word_mapper = partial(decode_arr_to_seq, idx2vocab=idx2vocab)
 
     return dataset, split_idx, cls_criterion, idx2word_mapper
+
+
+def prune_datasets(train_data, validation_data, test_data, args):
+    logging.info("Pruning datasets...")
+
+    logging.info("Pruning training data...")
+    pruning_params = prune_dataset(train_data, args)
+
+    logging.info("Pruning validation data...")
+    prune_dataset(validation_data, args, pruning_params=pruning_params)
+
+    logging.info("Pruning test data...")
+    prune_dataset(test_data, args, pruning_params=pruning_params)
+
+    return train_data, validation_data, test_data
 
 
 def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruning_params=None):
@@ -233,11 +245,6 @@ def main():
 
     dataset, split_idx, cls_criterion, idx2word_mapper = load_dataset(args)
 
-    prune_args = get_prune_args(pruning_method=args.pruning_method,
-                                num_minhash_funcs=args.num_minhash_funcs,
-                                random_pruning_prob=args.random_pruning_prob,
-                                node_dim=dataset[0].x.shape[1] if len(dataset[0].x.shape) == 2 else 0)
-
     train_idx = split_idx["train"]
     val_idx = split_idx["valid"]
     test_idx = split_idx["test"]
@@ -245,6 +252,11 @@ def main():
         train_idx = train_idx[:100]
         val_idx = val_idx[:100]
         test_idx = test_idx[:100]
+    elif args.sample != 1:
+        logging.info(f"Sampling {args.sample * 100}% of the dataset")
+        train_idx = list(np.random.choice(train_idx, int(len(train_idx) * args.sample), replace=False))
+        val_idx = list(np.random.choice(val_idx, int(len(val_idx) * args.sample), replace=False))
+        test_idx = list(np.random.choice(test_idx, int(len(test_idx) * args.sample), replace=False))
 
     train_data = list(dataset[train_idx])
     validation_data = list(dataset[val_idx])
@@ -253,14 +265,11 @@ def main():
     old_avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
 
     # Prune the train data and cache the parameters for further usage
-    pruning_params = prune_dataset(train_data, args)
+    train_data, validation_data, test_data = prune_datasets(train_data, validation_data, test_data, args)
 
     avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
     logging.info(
         f"Old average number of edges: {old_avg_edge_count}. New one: {avg_edge_count}. Change: {(old_avg_edge_count - avg_edge_count) / old_avg_edge_count * 100}\%")
-    #
-    prune_dataset(validation_data, args, pruning_params=pruning_params)
-    prune_dataset(test_data, args, pruning_params=pruning_params)
 
     train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True,
                               num_workers=args.num_workers)

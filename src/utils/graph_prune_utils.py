@@ -4,23 +4,10 @@ from tqdm import tqdm
 
 
 def get_adjacent_edges_of_nodes(num_nodes, edge_index, edge_attr):
-    num_edges = edge_index.shape[1]
-    adjacent_nodes = dict()
-    adjacent_edges_features = dict()
-
-    # Initialization
-    for i in range(num_nodes):
-        adjacent_nodes[i] = list()
-        adjacent_edges_features[i] = list()
-
-    # Doing the work: going for each edge and put it in the right map of edges and features
-    for i in range(num_edges):
-        edge_from = edge_index[0, i].item()
-        edge_to = edge_index[1, i].item()
-        adjacent_nodes[edge_from].append(edge_to)
-        if edge_attr is not None:
-            edge_feature = edge_attr[i, :]
-            adjacent_edges_features[edge_from].append(edge_feature)
+    edge_index_from = edge_index[0, :]
+    edge_index_to = edge_index[1, :]
+    adjacent_nodes = [edge_index_to[edge_index_from == i] for i in range(num_nodes)]
+    adjacent_edges_features = [edge_attr[edge_index_from == i, :] for i in range(num_nodes)]
 
     return adjacent_nodes, adjacent_edges_features
 
@@ -35,6 +22,10 @@ def graph_prune_edges_by_minhash_lsh(graph_sample, minhash, lsh):
                                                    minhash,
                                                    lsh)
     return new_edges
+
+
+def chunk_string(string, length):
+    return [string[0+i:length+i] for i in range(0, len(string), length)]
 
 
 def _prune_edges_by_minhash_lsh_helper(num_nodes,
@@ -66,14 +57,8 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
     adjacent_nodes, adjacent_edges_attrs = get_adjacent_edges_of_nodes(num_nodes,
                                                                        edge_list,
                                                                        edge_attrs)
-    lsh_nodes_signatures = list()
-    lsh_nodes_signatures_str = list()
-    if lsh_nodes is not None:
-        for n in range(num_nodes):
-            vector = node_attr[n, :]
-            signature = lsh_nodes.sign_vector(vector)
-            lsh_nodes_signatures.append(signature)
-            lsh_nodes_signatures_str.append("".join(f"{x}" for x in signature))
+
+    lsh_nodes_signatures = lsh_nodes.sign_vectors(node_attr) if lsh_nodes is not None else None
 
     for n in range(num_nodes):
         # Get all the adjacent nodes and edge attributes
@@ -85,24 +70,22 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
             continue
 
         # Set of all adjacent nodes where we use the lsh representation for the set
-        adjacent_reps = list()
-        adjacent_meta = list()
 
         # Going over the adjacent for each node and make the mappings.
-        for idx, node in enumerate(adjacent_nodes_local):
-            rep = ""
-            edge_attr = edge_attrs[idx]
-            if lsh_nodes is not None:
-                rep += lsh_nodes_signatures_str[node]
+        adjacent_meta = [((n, node.item()), edge_attrs[idx]) for idx, node in enumerate(adjacent_nodes_local)]
+        signatures_edge_attrs = lsh_edges.sign_vectors(edge_attrs.numpy()) if lsh_edges is not None else None
 
-            rep += "_"
+        if lsh_nodes is not None and lsh_edges is not None:
+            node_rep = lsh_nodes_signatures[n].repeat(repeats=len(adjacent_nodes_local), axis=0)
+            rep_tensor = np.hstack([node_rep, signatures_edge_attrs])
+        elif lsh_nodes is None:
+            rep_tensor = signatures_edge_attrs
+        else:
+            rep_tensor = lsh_nodes_signatures[n].repeat(repeats=len(adjacent_nodes_local), axis=0)
 
-            if lsh_edges is not None:
-                signature_edge_attr = lsh_edges.sign_vector(edge_attr.numpy())
-                signature_edge_attr_str = "".join(f"{x}" for x in signature_edge_attr)
-                rep += signature_edge_attr_str
-            adjacent_reps.append(rep)
-            adjacent_meta.append(((n, node), edge_attr))
+        rep_dim = rep_tensor.shape[-1]
+        rep_flat_str = ''.join(map(str, rep_tensor.flatten()))
+        adjacent_reps = chunk_string(rep_flat_str, rep_dim)
 
         # Transform the adjacent nodes to their signatures
         results = minhash.apply(adjacent_reps, adjacent_meta)
@@ -110,7 +93,6 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
         for result in results:
             new_edges_list.append(result.meta[0])
             new_attr_list.append(result.meta[1])
-
     # We return a numpy array
     new_edges_torch = torch.LongTensor(new_edges_list).T
     new_attr_torch = torch.stack(new_attr_list, axis=0)
@@ -177,6 +159,7 @@ def tg_dataset_prune(tg_dataset, method, **kwargs):
                                                                minhash=kwargs.get("minhash"),
                                                                lsh_nodes=kwargs.get("lsh_nodes"),
                                                                lsh_edges=kwargs.get("lsh_edges"))
+
         return prunning_ratio
     if method == "random":
         tg_dataset_prune_random(tg_dataset, p=kwargs.get("p"), random=kwargs.get("random"))

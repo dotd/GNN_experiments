@@ -26,9 +26,12 @@ def train(model, dataset, device, loader, optimizer, cls_criterion, tb_writer=No
                     loss += cls_criterion(pred[i].to(torch.float32), batch.y_arr[:, i])
                 loss = loss / len(pred)
             elif hasattr(batch, 'y'):
-                if dataset.name == 'ogbg-ppa':
+                if dataset.name in ['ogbg-ppa', 'mnist']:
                     loss = cls_criterion(pred.to(torch.float32),
                                          batch.y.view(-1, ))
+                elif dataset.name in ['zinc']:
+                    loss = cls_criterion(pred.to(torch.float32),
+                                         batch.y.view(-1, 1))
                 elif dataset.name in ['ogbg-molhiv', 'ogbg-molpcba']:
                     # ignore nan targets (unlabeled) when computing training loss.
                     is_labeled = batch.y == batch.y
@@ -51,6 +54,9 @@ def train(model, dataset, device, loader, optimizer, cls_criterion, tb_writer=No
 
 
 def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str, return_avg_time: bool = False):
+    if len(loader) == 0:
+        return None
+
     model.eval()
     y_true = []
     y_pred = []
@@ -84,9 +90,12 @@ def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str, re
                 elif dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba':
                     y_true.append(batch.y.view(pred.shape).detach().cpu())
                     y_pred.append(pred.detach().cpu())
-                elif dataset_name == 'ogbg-ppa':
+                elif dataset_name in ['ogbg-ppa', 'mnist']:
                     y_true.append(batch.y.view(-1, 1).detach().cpu())
                     y_pred.append(torch.argmax(pred.detach(), dim=1).view(-1, 1).cpu())
+                elif dataset_name in ['zinc']:
+                    y_true.append(batch.y.view(pred.shape).detach().cpu())
+                    y_pred.append(pred.detach().cpu())
                 else:
                     raise AttributeError("Batch does not contain either a y-member or a y_arr-member")
 
@@ -96,7 +105,7 @@ def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str, re
 
     if dataset_name == 'ogbg-code2':
         input_dict = {"seq_ref": y_true, "seq_pred": y_pred}
-    elif dataset_name in ['ogbg-molhiv', 'ogbg-ppa', 'ogbg-molpcba']:
+    elif dataset_name in ['ogbg-molhiv', 'ogbg-ppa', 'ogbg-molpcba', 'mnist', 'zinc']:
         y_true = torch.cat(y_true, dim=0).numpy()
         y_pred = torch.cat(y_pred, dim=0).numpy()
         input_dict = {"y_true": y_true, "y_pred": y_pred}
@@ -111,7 +120,9 @@ def get_loss_function(dataset_name: str):
     loss = None
     if dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba':
         loss = torch.nn.BCEWithLogitsLoss()
-    elif dataset_name in ['ogbg-code2', 'ogbg-ppa']:
+    elif dataset_name == 'zinc':
+        loss = torch.nn.L1Loss()
+    elif dataset_name in ['ogbg-code2', 'ogbg-ppa', 'mnist', 'cora']:
         loss = torch.nn.CrossEntropyLoss()
     else:
         raise ValueError("No loss function specified for the given database!")

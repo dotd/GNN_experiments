@@ -145,8 +145,14 @@ def register_logging_files(args):
     log_args_description(args)
 
     if args.enable_clearml_logger:
+        tags = [
+            f'Dataset: {args.dataset}',
+            f'Pruning method: {args.pruning_method}',
+            f'Architecture: {args.gnn}',
+        ]
         clearml_logger = get_clearml_logger(project_name="GNN_pruning",
-                                            task_name=f"pruning_method_{args.pruning_method}")
+                                            task_name=f"pruning_method_{args.pruning_method}",
+                                            tags=tags)
 
     return tb_writer, best_results_file, log_file
 
@@ -234,8 +240,13 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruni
             lsh_num_funcs = args.num_minhash_funcs
             sparsity = 2
             std_of_threshold = 1
-            dim_edges = original_dataset[0].edge_attr.shape[1] if original_dataset[0].edge_attr is not None \
-                                                                  and len(original_dataset[0].edge_attr.shape) == 2 else 0
+            dim_edges = 0
+            if original_dataset[0].edge_attr is not None:
+                if len(original_dataset[0].edge_attr.shape) == 1:
+                    dim_edges = 1
+                else:
+                    dim_edges = original_dataset[0].edge_attr.shape[1]
+
             minhash = MinHashRep(lsh_num_funcs, random, prime=2147483647)
             pruning_params = {
                 "minhash": minhash,
@@ -286,6 +297,7 @@ def main():
     tb_writer, best_results_file, log_file = register_logging_files(args)
 
     device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device("cpu")
 
     if args.proxy:
         set_proxy()

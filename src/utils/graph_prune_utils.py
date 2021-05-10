@@ -135,7 +135,10 @@ def tg_sample_prune_edges_by_minhash_lsh(tg_sample, minhash, lsh_nodes, lsh_edge
                                                              lsh_nodes=lsh_nodes,
                                                              lsh_edges=lsh_edges)
     tg_sample.edge_index = new_edges
-    tg_sample.edge_attr = new_attr
+    if len(old_edge_attr.shape) == 1 and len(new_attr.shape) == 2 and new_attr.shape[1] == 1:
+        tg_sample.edge_attr = new_attr.squeeze()
+    else:
+        tg_sample.edge_attr = new_attr
 
 
 def tg_dataset_prune_edges_by_minhash_lsh(tg_dataset, minhash, lsh_nodes, lsh_edges):

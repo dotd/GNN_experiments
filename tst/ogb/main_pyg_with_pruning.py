@@ -64,7 +64,7 @@ def get_args():
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--gnn', type=str, default='gcn',
                         help='GNN gcn, or gcn-virtual (default: gcn)',
-                        choices=['gcn', 'gat', 'monet', 'pna'])
+                        choices=['gcn', 'gat', 'monet', 'pna', 'sage'])
     parser.add_argument('--drop_ratio', type=float, default=0.5,
                         help='dropout ratio (default: 0.5)')
     parser.add_argument('--num_layer', type=int, default=5,
@@ -79,7 +79,7 @@ def get_args():
                         help='number of workers (default: 0)')
     parser.add_argument('--dataset', type=str, default="ogbg-molhiv",
                         help='dataset name (default: ogbg-molhiv)',
-                        choices=['ogbg-molhiv', 'ogbg-molpcba', 'ogbg-ppa', 'ogbg-code2', 'mnist', 'zinc'])
+                        choices=['ogbg-molhiv', 'ogbg-molpcba', 'ogbg-ppa', 'ogbg-code2', 'mnist', 'zinc', 'reddit', 'amazon_comp'])
     parser.add_argument('--feature', type=str, default="full",
                         help='full feature or simple feature')
     parser.add_argument('--filename', type=str, default="",
@@ -173,6 +173,25 @@ def load_dataset(args):
 
         train_data = list(train_data)
         test_data = list(test_data)
+
+    elif args.dataset == 'reddit':
+        train_data = Reddit(root='dataset')
+
+        deg = torch.zeros(5, dtype=torch.long)
+        for data in train_data:
+            d = degree(data.edge_index[1], num_nodes=data.num_nodes, dtype=torch.long)
+            deg += torch.bincount(d, minlength=deg.numel())
+
+        dataset = train_data
+        dataset.name = 'zinc'
+        validation_data = ZINC(root='dataset', subset=True, split='val')
+        test_data = ZINC(root='dataset', subset=True, split='test')
+        dataset.eval_metric = 'mae'
+
+        train_data = list(train_data)
+        validation_data = list(validation_data)
+        test_data = list(test_data)
+
     elif args.dataset == 'zinc':
         train_data = ZINC(root='dataset', subset=True, split='train')
 

@@ -122,7 +122,7 @@ def get_loss_function(dataset_name: str):
         loss = torch.nn.BCEWithLogitsLoss()
     elif dataset_name == 'zinc':
         loss = torch.nn.L1Loss()
-    elif dataset_name in ['ogbg-code2', 'ogbg-ppa', 'mnist', 'cora']:
+    elif dataset_name in ['ogbg-code2', 'ogbg-ppa', 'mnist', 'cora', 'reddit']:
         loss = torch.nn.CrossEntropyLoss()
     else:
         raise ValueError("No loss function specified for the given database!")

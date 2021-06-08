@@ -6,12 +6,32 @@ from tqdm import tqdm
 def get_adjacent_edges_of_nodes(num_nodes, edge_index, edge_attr):
     edge_index_from = edge_index[0, :]
     edge_index_to = edge_index[1, :]
-    adjacent_nodes = [edge_index_to[edge_index_from == i] for i in range(num_nodes)]
+    adjacent_nodes = [[] for _ in range(num_nodes)]
+    adjacent_edges_features = [[] for _ in range(num_nodes)] if edge_attr is not None else None
 
-    if len(edge_attr.shape) == 1:
-        adjacent_edges_features = [edge_attr[edge_index_from == i] for i in range(num_nodes)] if edge_attr is not None else None
-    else:
-        adjacent_edges_features = [edge_attr[edge_index_from == i, :] for i in range(num_nodes)] if edge_attr is not None else None
+    for i in range(len(edge_index_from)):
+        # if (i / len(edge_index_from)) > 0.7:
+        #     break
+        if i % 1e+6 == 0:
+            print(f"Processed {i} / {len(edge_index_from)} edges ({(i / len(edge_index_from)) * 100} %)")
+
+        from_ = edge_index_from[i]
+        to_ = edge_index_to[i]
+        adjacent_nodes[from_].append(to_)
+
+        if adjacent_edges_features is not None:
+            adjacent_edges_features[from_].append(edge_attr[i])
+
+    if adjacent_edges_features is not None:
+        for i in range(len(adjacent_edges_features)):
+            adjacent_edges_features[i] = torch.stack(adjacent_edges_features[i])
+
+    # adjacent_nodes = [edge_index_to[edge_index_from == i] for i in range(num_nodes)]
+    #
+    # if len(edge_attr.shape) == 1:
+    #     adjacent_edges_features = [edge_attr[edge_index_from == i] for i in range(num_nodes)] if edge_attr is not None else None
+    # else:
+    #     adjacent_edges_features = [edge_attr[edge_index_from == i, :] for i in range(num_nodes)] if edge_attr is not None else None
 
     return adjacent_nodes, adjacent_edges_features
 
@@ -135,7 +155,7 @@ def tg_sample_prune_edges_by_minhash_lsh(tg_sample, minhash, lsh_nodes, lsh_edge
                                                              lsh_nodes=lsh_nodes,
                                                              lsh_edges=lsh_edges)
     tg_sample.edge_index = new_edges
-    if len(old_edge_attr.shape) == 1 and len(new_attr.shape) == 2 and new_attr.shape[1] == 1:
+    if old_edge_attr is not None and len(old_edge_attr.shape) == 1 and len(new_attr.shape) == 2 and new_attr.shape[1] == 1:
         tg_sample.edge_attr = new_attr.squeeze()
     else:
         tg_sample.edge_attr = new_attr

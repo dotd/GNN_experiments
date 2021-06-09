@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
 from torch_geometric.data import NeighborSampler
-from torch_geometric.datasets import Reddit, Amazon
+from torch_geometric.datasets import Reddit, Amazon, Planetoid
 from tqdm import tqdm
 
 from src.archs.gat_sage import GATSage
@@ -103,6 +103,8 @@ def get_dataset(dataset_name):
         data.val_mask = torch.tensor(idx_val)
         data.test_mask = torch.tensor(idx_test)
         dataset.data = data
+    elif dataset_name in ["Cora", "CiteSeer", "PubMed"]:
+        dataset = Planetoid(path, name=dataset_name, split="full", )
     else:
         raise NotImplementedError
 
@@ -143,7 +145,7 @@ def main():
     old_edge_count = data.edge_index.shape[1]
 
     # Pass the whole graph to the pruning mechanism. Consider it as one sample
-    prune_dataset([data], args, random=np.random.RandomState(0), pruning_params=None)
+    # prune_dataset([data], args, random=np.random.RandomState(0), pruning_params=None)
 
     edge_count = data.edge_index.shape[1]
     print(

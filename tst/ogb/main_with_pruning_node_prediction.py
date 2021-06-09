@@ -8,6 +8,7 @@ from torch_geometric.datasets import Reddit, Amazon
 from tqdm import tqdm
 
 from src.archs.gat_sage import GATSage
+from src.archs.mlp_node_prediction import MLP
 from src.archs.sage import SAGE
 from tst.ogb.main_pyg_with_pruning import prune_dataset, get_args
 
@@ -120,6 +121,8 @@ def get_model(num_features, num_classes, arch):
         model = SAGE(num_features, 256, num_classes)
     elif arch == 'gat':
         model = GATSage(num_features, num_classes)
+    elif arch == 'mlp':
+        model = MLP(num_features, num_classes, 2)
     else:
         raise NotImplementedError
 

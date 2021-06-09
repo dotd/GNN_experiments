@@ -174,24 +174,6 @@ def load_dataset(args):
         train_data = list(train_data)
         test_data = list(test_data)
 
-    elif args.dataset == 'reddit':
-        train_data = Reddit(root='dataset')
-
-        deg = torch.zeros(5, dtype=torch.long)
-        for data in train_data:
-            d = degree(data.edge_index[1], num_nodes=data.num_nodes, dtype=torch.long)
-            deg += torch.bincount(d, minlength=deg.numel())
-
-        dataset = train_data
-        dataset.name = 'zinc'
-        validation_data = ZINC(root='dataset', subset=True, split='val')
-        test_data = ZINC(root='dataset', subset=True, split='test')
-        dataset.eval_metric = 'mae'
-
-        train_data = list(train_data)
-        validation_data = list(validation_data)
-        test_data = list(test_data)
-
     elif args.dataset == 'zinc':
         train_data = ZINC(root='dataset', subset=True, split='train')
 
@@ -257,7 +239,7 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruni
         if pruning_params is None:
             dim_nodes = original_dataset[0].x.shape[1] if len(original_dataset[0].x.shape) == 2 else 0
             lsh_num_funcs = args.num_minhash_funcs
-            sparsity = 2
+            sparsity = 20
             std_of_threshold = 1
             dim_edges = 0
             if original_dataset[0].edge_attr is not None:

@@ -5,11 +5,12 @@ import torch.nn.functional as F
 
 
 class GATSage(torch.nn.Module):
-    def __init__(self, num_features, num_classes):
+    def __init__(self, num_features, num_classes, n_heads=2):
         super(GATSage, self).__init__()
+        self.n_heads = n_heads
         self.num_layers = 2
-        self.conv1 = GATConv(num_features, 8, heads=8)
-        self.conv2 = GATConv(64, num_classes, heads=1)
+        self.conv1 = GATConv(num_features, 8, heads=self.n_heads)
+        self.conv2 = GATConv(8*self.n_heads, num_classes, heads=1)
         self.convs = torch.nn.ModuleList([self.conv1, self.conv2])
 
     def forward(self, x, adjs):

@@ -5,6 +5,10 @@ from torch_geometric.nn import SplineConv, graclus, max_pool
 import torch.nn as nn
 from src.archs.monet import normalized_cut_2d
 
+"""
+Implementation from: https://github.com/rusty1s/pytorch_spline_conv
+"""
+
 
 class SplineCNN(torch.nn.Module):
     def __init__(self):

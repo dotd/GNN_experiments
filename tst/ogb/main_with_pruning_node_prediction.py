@@ -1,19 +1,22 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, accuracy_score
 from sklearn.model_selection import train_test_split
 from torch_geometric.data import NeighborSampler
 from torch_geometric.datasets import Reddit, Amazon, Planetoid
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from src.archs.gat_sage import GATSage
 from src.archs.mlp_node_prediction import MLP
 from src.archs.sage import SAGE
+from src.utils.date_utils import get_time_str
+from src.utils.logging_utils import get_clearml_logger
 from tst.ogb.main_pyg_with_pruning import prune_dataset, get_args
 
 
-def train(epoch, dataset, train_loader, model, device, optimizer):
+def train(epoch, dataset, train_loader, model, device, optimizer, tb_writer):
     """
     Performs a training episode.
 
@@ -53,6 +56,10 @@ def train(epoch, dataset, train_loader, model, device, optimizer):
         y_pred = torch.cat([y_pred, out.argmax(dim=-1)])
         y_true = torch.cat([y_true, y[n_id[:batch_size]]])
 
+        if tb_writer is not None:
+            tb_writer.add_scalar('Loss/train_iterations', loss.item(), tb_writer.iteration)
+            tb_writer.iteration += 1
+
     pbar.close()
 
     loss = total_loss / len(train_loader)
@@ -82,7 +89,7 @@ def test(dataset, subgraph_loader, model, device):
 
     results = []
     for mask in [dataset.data.train_mask, dataset.data.val_mask, dataset.data.test_mask]:
-        results += [f1_score(y_true[mask], y_pred[mask], average='micro')]
+        results += [accuracy_score(y_true[mask], y_pred[mask])]
 
     return results
 
@@ -135,6 +142,8 @@ def main():
     args = get_args()
     dataset = get_dataset(args.dataset)
     data = dataset.data
+    tb_writer = SummaryWriter()
+    tb_writer.iteration = 0
 
     device = torch.device('cpu')
     # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -145,7 +154,7 @@ def main():
     old_edge_count = data.edge_index.shape[1]
 
     # Pass the whole graph to the pruning mechanism. Consider it as one sample
-    # prune_dataset([data], args, random=np.random.RandomState(0), pruning_params=None)
+    prune_dataset([data], args, random=np.random.RandomState(0), pruning_params=None)
 
     edge_count = data.edge_index.shape[1]
     print(
@@ -158,13 +167,31 @@ def main():
                                       batch_size=1024, shuffle=False,
                                       num_workers=12)
 
+    if args.enable_clearml_logger:
+        tags = [
+            f'Dataset: {args.dataset}',
+            f'Pruning method: {args.pruning_method}',
+            f'Architecture: {args.gnn}',
+        ]
+        pruning_param = args.num_minhash_funcs if args.pruning_method == 'minhas_lsh' else args.random_pruning_prob
+        tags.append(f'pruning_param: {pruning_param}')
+        clearml_logger = get_clearml_logger(project_name="GNN_pruning",
+                                            task_name=get_time_str(),
+                                            tags=tags)
+
     for epoch in range(1, args.epochs + 1):
-        loss, acc, f1 = train(epoch, dataset, train_loader, model, device, optimizer)
+        loss, acc, f1 = train(epoch, dataset, train_loader, model, device, optimizer, tb_writer)
         print(f'Epoch {epoch:02d}, Loss: {loss:.4f}, Approx. Train: {f1:.4f}')
 
-        train_f1, val_f1, test_f1 = test(dataset, subgraph_loader, model, device)
-        print(f'Train: {train_f1:.4f}, Val: {val_f1:.4f}, '
-              f'Test: {test_f1:.4f}')
+        train_acc, val_acc, test_acc = test(dataset, subgraph_loader, model, device)
+        print(f'Train ACC: {train_acc:.4f}, Val ACC: {val_acc:.4f}, '
+              f'Test ACC: {test_acc:.4f}')
+
+        tb_writer.add_scalars('Accuracy',
+                              {'train': train_acc,
+                               'Validation': val_acc,
+                               'Test': test_acc},
+                              epoch)
 
 
 if __name__ == '__main__':

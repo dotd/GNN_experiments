@@ -21,12 +21,12 @@ class Evaluator(OriginalEvaluator):
         """
 
         if name in ['mnist']:
-            # Use these custom settings for initialization. Keep the condition as existence in the list in case other
-            # datasets are added in the future
+            # Add here datasets that use ACCURACY for evaluation
             self.name = name
             self.num_tasks = 1
             self.eval_metric = 'acc'
         elif name in ['zinc']:
+            # Add here datasets that use MAE for evaluation
             self.name = name
             self.num_tasks = 1
             self.eval_metric = 'mae'

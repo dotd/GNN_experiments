@@ -1,7 +1,9 @@
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GATConv, global_mean_pool
-import torch.nn as nn
+from torch_geometric.nn import GATConv
+
+
+# Created by: Eitan Kosman, BCAI
 
 
 class GAT(torch.nn.Module):

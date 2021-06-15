@@ -1,23 +1,32 @@
-import torch
-from tqdm import tqdm
 from collections import OrderedDict
+
 import numpy as np
 from torch import nn
-import torch.nn.functional as F
+
+
+# Created by: Eitan Kosman, BCAI
+# Implementation of a multi-layer fully connected network with linearly decreasing layer sizes and relu activations
 
 
 class MLP(nn.Module):
     """
     A module which consists of several n_steps fully connected layers with ReLU activations
-    between every 2 layers. The ouput of the module has no activation
+    between every 2 layers. The output of the module has no activation
     """
 
-    def __init__(self, in_features, out_features, n_steps, dropout=None, bias=True):
+    def __init__(self, in_features: int, out_features: int, n_steps: int, dropout: float = None, bias: bool = True):
+        """
+        @param in_features - number of input features for the first layer
+        @param out_features - number of outputs of the last layer
+        @param n_steps - number of layers to construct
+        @param n_steps - dropout parameter to use between each two consecutive layers, if provided.
+                        If not provided, no dropout would be used.
+        @param bias - whether to use bias in each linear layer
+        """
         super(MLP, self).__init__()
         steps = np.linspace(in_features, out_features, n_steps + 1, dtype=int)
         steps[0] = in_features
         steps[-1] = out_features
-        # steps = np.linspace(in_features, out_out_features, n_steps + 1, dtype=int)
         layers = OrderedDict()
         for idx, (in_f, out_f) in enumerate(zip(steps[: -1], steps[1:])):
             layers[f"linear_{idx}"] = nn.Linear(in_features=in_f, out_features=out_f, bias=bias)

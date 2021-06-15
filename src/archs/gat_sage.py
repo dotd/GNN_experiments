@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 # Created by: Eitan Kosman, BCAI
 # This is an implementation of architecture for performing node prediction using graph attention layers
-# It use the same inference algorithm as in GraphSAGE paper, but uses GAT layers instead of the original graphSAGE operation
+# It uses the same inference algorithm as in GraphSAGE paper, but uses GAT layers instead of the original graphSAGE operation
 
 
 class GATSage(torch.nn.Module):

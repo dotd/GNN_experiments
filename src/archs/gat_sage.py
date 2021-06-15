@@ -4,6 +4,11 @@ from tqdm import tqdm
 import torch.nn.functional as F
 
 
+# Created by: Eitan Kosman, BCAI
+# This is an implementation of architecture for performing node prediction using graph attention layers
+# It use the same inference algorithm as in GraphSAGE paper, but uses GAT layers instead of the original graphSAGE operation
+
+
 class GATSage(torch.nn.Module):
     def __init__(self, num_features, num_classes, n_heads=2):
         super(GATSage, self).__init__()

@@ -1,6 +1,4 @@
 import argparse
-import functools
-import gc
 import json
 import logging
 from functools import partial
@@ -11,18 +9,17 @@ from typing import Dict
 import numpy as np
 import torch
 import torch.optim as optim
+import torch_geometric.transforms as T
 from ogb.graphproppred import PygGraphPropPredDataset
 from torch.utils.tensorboard import SummaryWriter
 from torch_geometric.data import DataLoader
-from torch_geometric.datasets import MNISTSuperpixels, CoraFull, ZINC
+from torch_geometric.datasets import MNISTSuperpixels, ZINC
 from torch_geometric.utils import degree
 from torchvision import transforms
-import torch_geometric.transforms as T
 
 from src.utils.date_utils import get_time_str
 from src.utils.email_utils import GmailNotifier
 from src.utils.evaluate import Evaluator
-from src.utils.graph_conversion import convert_to_line_graphs
 from src.utils.graph_prune_utils import tg_dataset_prune
 from src.utils.logging_utils import register_logger, log_args_description, get_clearml_logger, log_command
 from src.utils.lsh_euclidean_tools import LSH
@@ -30,7 +27,7 @@ from src.utils.minhash_tools import MinHash, MinHashRep
 from src.utils.proxy_utils import set_proxy
 from tst.ogb.encoder_utils import augment_edge, decode_arr_to_seq, encode_y_to_arr, get_vocab_mapping
 from tst.ogb.exp_utils import get_loss_function, evaluate, train
-from tst.ogb.model_and_data_utils import add_zeros, create_model, to_line_graph, compose
+from tst.ogb.model_and_data_utils import add_zeros, create_model
 
 
 def get_prune_args(pruning_method: str, num_minhash_funcs: int, random_pruning_prob: float, node_dim: int) -> Dict:
@@ -79,7 +76,8 @@ def get_args():
                         help='number of workers (default: 0)')
     parser.add_argument('--dataset', type=str, default="ogbg-molhiv",
                         help='dataset name (default: ogbg-molhiv)',
-                        choices=['ogbg-molhiv', 'ogbg-molpcba', 'ogbg-ppa', 'ogbg-code2', 'mnist', 'zinc', 'reddit', 'amazon_comp', "Cora", "CiteSeer", "PubMed"])
+                        choices=['ogbg-molhiv', 'ogbg-molpcba', 'ogbg-ppa', 'ogbg-code2', 'mnist', 'zinc', 'reddit',
+                                 'amazon_comp', "Cora", "CiteSeer", "PubMed"])
     parser.add_argument('--feature', type=str, default="full",
                         help='full feature or simple feature')
     parser.add_argument('--filename', type=str, default="",
@@ -102,7 +100,8 @@ def get_args():
     parser.add_argument('--test', action="store_true", default=False,
                         help="Run in test mode", )
     parser.add_argument('--sample', type=float, default=1, help='The size of the sampled dataset')
-    parser.add_argument('--line_graph', default=False, action='store_true', help='Convert every graph G to L(G) as a line graph')
+    parser.add_argument('--line_graph', default=False, action='store_true',
+                        help='Convert every graph G to L(G) as a line graph')
 
     # logging params:
     parser.add_argument('--exps_dir', type=str, help='Target directory to save logging files')
@@ -324,7 +323,8 @@ def main():
     # Prune the train data and cache the parameters for further usage
     train_data, validation_data, test_data = prune_datasets(train_data, validation_data, test_data, args)
 
-    avg_edge_count = np.mean([idx.shape[1] for idx in (sample.edge_index for sample in train_data if sample.num_edges > 0)])
+    avg_edge_count = np.mean(
+        [idx.shape[1] for idx in (sample.edge_index for sample in train_data if sample.num_edges > 0)])
     logging.info(
         f"Old average number of edges: {old_avg_edge_count}. New one: {avg_edge_count}. Change: {(old_avg_edge_count - avg_edge_count) / old_avg_edge_count * 100}\%")
 
@@ -390,7 +390,8 @@ def main():
                                        'Test': test_perf[dataset.eval_metric]},
                                       epoch)
 
-    best_val_epoch = np.argmax(np.array(valid_curve)).item() if valid_perf is not None else np.argmax(np.array(test_curve)).item()
+    best_val_epoch = np.argmax(np.array(valid_curve)).item() if valid_perf is not None else np.argmax(
+        np.array(test_curve)).item()
     best_train = max(train_curve)
     finish_time = time()
     logging.info(f'Finished training! Elapsed time: {(finish_time - start_time) / 60} minutes')

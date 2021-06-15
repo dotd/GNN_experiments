@@ -11,8 +11,15 @@ except ImportError:
 ### Evaluator for graph classification
 class Evaluator(OriginalEvaluator):
     def __init__(self, name):
+        # Initialize the parent object for an OGB dataset, because it recognizes only OGB datasets
         fake_name = name if name in ['ogbg-molhiv', 'ogbg-molpcba', 'ogbg-ppa', 'ogbg-code2'] else 'ogbg-ppa'
         super(Evaluator, self).__init__(fake_name)
+
+        """
+        mnist, zinc, etc. are not support by the original evaluator. Here, I manually define the required
+        parameters for using this evaluator for these datasets 
+        """
+
         if name in ['mnist']:
             # Use these custom settings for initialization. Keep the condition as existence in the list in case other
             # datasets are added in the future

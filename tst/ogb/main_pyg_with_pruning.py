@@ -13,7 +13,7 @@ import torch_geometric.transforms as T
 from ogb.graphproppred import PygGraphPropPredDataset
 from torch.utils.tensorboard import SummaryWriter
 from torch_geometric.data import DataLoader
-from torch_geometric.datasets import MNISTSuperpixels, ZINC
+from torch_geometric.datasets import MNISTSuperpixels, ZINC, MoleculeNet
 from torch_geometric.utils import degree
 from torchvision import transforms
 
@@ -172,6 +172,9 @@ def load_dataset(args):
 
         train_data = list(train_data)
         test_data = list(test_data)
+
+    elif args.dataset in ["ESOL", "FreeSolv", "Lipo", "PCBA", "MUV", "HIV", "BACE", "BBPB", "Tox21", "ToxCast", "SIDER", "ClinTox"]:
+        dataset = MoleculeNet(root='dataset', name=args.dataset)
 
     elif args.dataset == 'zinc':
         train_data = ZINC(root='dataset', subset=True, split='train')

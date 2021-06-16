@@ -5,12 +5,19 @@ from pathlib import Path
 import pandas as pd
 import torch
 from torch_geometric.data import Data
+import networkx as nx
 
 from ogb.graphproppred import PygGraphPropPredDataset
 from ogb.graphproppred.mol_encoder import AtomEncoder, BondEncoder
+from torch_geometric.utils import to_networkx, from_networkx
+
+from src.archs.SimpleGCN import SimpleGCN
+from src.archs.pna import PNA
 from tst.ogb.encoder_utils import ASTNodeEncoder, get_vocab_mapping
+from tst.ogb.gat_geometric import GAT
 from tst.ogb.gcn import GCN
 from tst.ogb.gnn import GNN
+from src.archs.monet import MoNet
 
 
 def get_output_dimension(dataset: PygGraphPropPredDataset):
@@ -29,8 +36,14 @@ def get_output_dimension(dataset: PygGraphPropPredDataset):
     return out_dim
 
 
-def create_model(dataset: PygGraphPropPredDataset, emb_dim: int, dropout_ratio: float, device: str, num_layers: int,
-                 max_seq_len: int, num_vocab: int, model_type: str) -> torch.nn.Module:
+def create_model(dataset: PygGraphPropPredDataset,
+                 emb_dim: int,
+                 dropout_ratio: float,
+                 device: str,
+                 num_layers: int,
+                 max_seq_len: int,
+                 num_vocab: int,
+                 model_type: str) -> torch.nn.Module:
     """
     Create a GCN model for the given dataset
     :param dataset:
@@ -48,13 +61,13 @@ def create_model(dataset: PygGraphPropPredDataset, emb_dim: int, dropout_ratio: 
         edge_encoder_constrtuctor = BondEncoder
         print("Number of classes: ", dataset.num_tasks)
         model = GCN(
-                    num_classes=get_output_dimension(dataset),
-                    # num_classes=dataset.num_classes,
-                    num_layer=num_layers,
-                    emb_dim=emb_dim,
-                    drop_ratio=dropout_ratio,
-                    node_encoder=node_encoder,
-                    edge_encoder_ctor=edge_encoder_constrtuctor).to(device)
+            num_classes=get_output_dimension(dataset),
+            # num_classes=dataset.num_classes,
+            num_layer=num_layers,
+            emb_dim=emb_dim,
+            drop_ratio=dropout_ratio,
+            node_encoder=node_encoder,
+            edge_encoder_ctor=edge_encoder_constrtuctor).to(device)
 
     elif dataset.name == "ogbg-code2":
         nodetypes_mapping = pd.read_csv(Path(dataset.root) / 'mapping' / 'typeidx2type.csv.gz')
@@ -69,7 +82,8 @@ def create_model(dataset: PygGraphPropPredDataset, emb_dim: int, dropout_ratio: 
         model = GCN(num_classes=len(vocab2idx), max_seq_len=max_seq_len, node_encoder=node_encoder,
                     edge_encoder_ctor=edge_encoder_ctor, num_layer=num_layers, emb_dim=emb_dim,
                     drop_ratio=dropout_ratio).to(device)
-    elif dataset.name == "ogbg-ppa":
+    elif dataset.name in ["ogbg-ppa"]:
+        # Multi-class classification
         if model_type == 'gin':
             model = GNN(gnn_type='gin', num_class=dataset.num_classes, num_layer=num_layers, emb_dim=emb_dim,
                         drop_ratio=dropout_ratio, virtual_node=False).to(device)
@@ -82,8 +96,22 @@ def create_model(dataset: PygGraphPropPredDataset, emb_dim: int, dropout_ratio: 
         elif model_type == 'gcn-virtual':
             model = GNN(gnn_type='gcn', num_class=dataset.num_classes, num_layer=num_layers, emb_dim=emb_dim,
                         drop_ratio=dropout_ratio, virtual_node=True).to(device)
+        elif model_type == 'gat':
+            model = GAT(num_features=dataset.num_features, num_classes=dataset.num_classes).to(device)
         else:
             raise ValueError('Invalid GNN type')
+    elif dataset.name == 'mnist':
+        if model_type == 'gcn':
+            model = SimpleGCN(num_node_features=dataset.num_features, num_classes=dataset.num_classes).to(device)
+        elif model_type == 'monet':
+            model = MoNet(kernel_size=25).to(device)
+    elif dataset.name == 'zinc':
+        if model_type == 'gat':
+            return GAT(num_features=dataset.num_features, num_classes=dataset.num_classes).to(device)
+        elif model_type == 'gcn':
+            model = SimpleGCN(num_node_features=dataset.num_features, num_classes=dataset.num_classes).to(device)
+        elif model_type == 'pna':
+            model = PNA().to(device)
     else:
         raise ValueError("Used an invalid dataset name")
     return model
@@ -96,4 +124,38 @@ def add_zeros(data: Data) -> Data:
     :return:
     """
     data.x = torch.zeros(data.num_nodes, dtype=torch.long)
+    return data
+
+
+def to_line_graph(data: Data, directed: bool = True) -> Data:
+    """
+    Convert a graph G to its corresponding line-graph L(G)
+    Args:
+        data: a torch_gemoetric Data object representing representing a graph
+        directed: whether the original graph is directed or undirected
+    """
+    original_edge_attrs = data.edge_attr
+    original_edge_names = [(from_.item(), to_.item()) for from_, to_ in zip(data.edge_index[0, :], data.edge_index[1, :])]
+    original_edge_to_attr = {e: attr for e, attr in zip(original_edge_names, original_edge_attrs)}
+    ctor = nx.DiGraph if directed else nx.Graph
+    G = to_networkx(data,
+                    node_attrs=['x'],
+                    edge_attrs=['edge_attr'],
+                    to_undirected=not directed)
+    line_graph = nx.line_graph(G, create_using=ctor)
+    res_data = from_networkx(line_graph)
+
+    # Copy original attribtues
+    res_data.x = torch.stack([original_edge_to_attr[e] for e in line_graph.nodes])
+    res_data.y = data.y
+    return data
+
+
+def compose(data: Data, transforms: list):
+    """
+    Performs all the transformations given in transform on the data
+    """
+    for transform in transforms:
+        data = transform(data)
+
     return data

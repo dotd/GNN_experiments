@@ -6,8 +6,32 @@ from tqdm import tqdm
 def get_adjacent_edges_of_nodes(num_nodes, edge_index, edge_attr):
     edge_index_from = edge_index[0, :]
     edge_index_to = edge_index[1, :]
-    adjacent_nodes = [edge_index_to[edge_index_from == i] for i in range(num_nodes)]
-    adjacent_edges_features = [edge_attr[edge_index_from == i, :] for i in range(num_nodes)]
+    adjacent_nodes = [[] for _ in range(num_nodes)]
+    adjacent_edges_features = [[] for _ in range(num_nodes)] if edge_attr is not None else None
+
+    for i in range(len(edge_index_from)):
+        # if (i / len(edge_index_from)) > 0.7:
+        #     break
+        if i % 1e+6 == 0:
+            print(f"Processed {i} / {len(edge_index_from)} edges ({(i / len(edge_index_from)) * 100} %)")
+
+        from_ = edge_index_from[i]
+        to_ = edge_index_to[i]
+        adjacent_nodes[from_].append(to_)
+
+        if adjacent_edges_features is not None:
+            adjacent_edges_features[from_].append(edge_attr[i])
+
+    if adjacent_edges_features is not None:
+        for i in range(len(adjacent_edges_features)):
+            adjacent_edges_features[i] = torch.stack(adjacent_edges_features[i])
+
+    # adjacent_nodes = [edge_index_to[edge_index_from == i] for i in range(num_nodes)]
+    #
+    # if len(edge_attr.shape) == 1:
+    #     adjacent_edges_features = [edge_attr[edge_index_from == i] for i in range(num_nodes)] if edge_attr is not None else None
+    # else:
+    #     adjacent_edges_features = [edge_attr[edge_index_from == i, :] for i in range(num_nodes)] if edge_attr is not None else None
 
     return adjacent_nodes, adjacent_edges_features
 
@@ -63,7 +87,6 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
     for n in range(num_nodes):
         # Get all the adjacent nodes and edge attributes
         adjacent_nodes_local = adjacent_nodes[n]
-        edge_attrs = adjacent_edges_attrs[n]
 
         # If no adjacent nodes, let's continue
         if len(adjacent_nodes_local) == 0:
@@ -72,16 +95,22 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
         # Set of all adjacent nodes where we use the lsh representation for the set
 
         # Going over the adjacent for each node and make the mappings.
-        adjacent_meta = [((n, node.item()), edge_attrs[idx]) for idx, node in enumerate(adjacent_nodes_local)]
-        signatures_edge_attrs = lsh_edges.sign_vectors(edge_attrs.numpy()) if lsh_edges is not None else None
+        if lsh_edges is not None:
+            edge_attrs = adjacent_edges_attrs[n]
+            adjacent_meta = [((n, node.item()), edge_attrs[idx]) for idx, node in enumerate(adjacent_nodes_local)]
+            signatures_edge_attrs = lsh_edges.sign_vectors(edge_attrs.numpy()) if lsh_edges is not None else None
+        else:
+            adjacent_meta = [((n, node.item()), node_attr[node.item()]) for node in adjacent_nodes_local]
 
         if lsh_nodes is not None and lsh_edges is not None:
-            node_rep = lsh_nodes_signatures[n].repeat(repeats=len(adjacent_nodes_local), axis=0)
+            node_rep = lsh_nodes_signatures[n][np.newaxis,...].repeat(repeats=len(adjacent_nodes_local), axis=0)
             rep_tensor = np.hstack([node_rep, signatures_edge_attrs])
         elif lsh_nodes is None:
             rep_tensor = signatures_edge_attrs
+        elif lsh_edges is None:
+            rep_tensor = lsh_nodes_signatures[n][np.newaxis, ...].repeat(repeats=len(adjacent_nodes_local), axis=0)
         else:
-            rep_tensor = lsh_nodes_signatures[n].repeat(repeats=len(adjacent_nodes_local), axis=0)
+            raise Exception("No features in the graph")
 
         rep_dim = rep_tensor.shape[-1]
         rep_flat_str = ''.join(map(str, rep_tensor.flatten()))
@@ -92,10 +121,10 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
         # The pruned list construction
         for result in results:
             new_edges_list.append(result.meta[0])
-            new_attr_list.append(result.meta[1])
+            new_attr_list.append(torch.tensor(result.meta[1]))
     # We return a numpy array
     new_edges_torch = torch.LongTensor(new_edges_list).T
-    new_attr_torch = torch.stack(new_attr_list, axis=0)
+    new_attr_torch = torch.stack(new_attr_list, axis=0) if len(new_attr_list) else torch.tensor([])
     return new_edges_torch, new_attr_torch
 
 
@@ -126,7 +155,10 @@ def tg_sample_prune_edges_by_minhash_lsh(tg_sample, minhash, lsh_nodes, lsh_edge
                                                              lsh_nodes=lsh_nodes,
                                                              lsh_edges=lsh_edges)
     tg_sample.edge_index = new_edges
-    tg_sample.edge_attr = new_attr
+    if old_edge_attr is not None and len(old_edge_attr.shape) == 1 and len(new_attr.shape) == 2 and new_attr.shape[1] == 1:
+        tg_sample.edge_attr = new_attr.squeeze()
+    else:
+        tg_sample.edge_attr = new_attr
 
 
 def tg_dataset_prune_edges_by_minhash_lsh(tg_dataset, minhash, lsh_nodes, lsh_edges):
@@ -134,8 +166,12 @@ def tg_dataset_prune_edges_by_minhash_lsh(tg_dataset, minhash, lsh_nodes, lsh_ed
     for tg_sample in tqdm(tg_dataset):
         original_number_of_edges = tg_sample.edge_index.shape[1]
         tg_sample_prune_edges_by_minhash_lsh(tg_sample, minhash, lsh_nodes, lsh_edges)
-        new_number_of_edges = tg_sample.edge_index.shape[1]
-        ratios.append(new_number_of_edges / original_number_of_edges)
+
+        if original_number_of_edges != 0:
+            new_number_of_edges = tg_sample.edge_index.shape[1]
+            ratios.append(new_number_of_edges / original_number_of_edges)
+        else:
+            ratios.append(0)
     return np.mean(ratios)
 
 
@@ -145,7 +181,10 @@ def tg_sample_prune_random(tg_sample, p, random):
     indices = random.permutation(num_edges)[:index_p]
     tg_sample.edge_index = tg_sample.edge_index[:, indices]
     if hasattr(tg_sample, 'edge_attr') and tg_sample.edge_attr is not None:
-        tg_sample.edge_attr = tg_sample.edge_attr[indices, :]
+        if len(tg_sample.edge_attr.shape) == 1:
+            tg_sample.edge_attr = tg_sample.edge_attr[indices]
+        else:
+            tg_sample.edge_attr = tg_sample.edge_attr[indices, :]
 
 
 def tg_dataset_prune_random(tg_dataset, p, random):

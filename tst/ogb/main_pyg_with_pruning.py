@@ -9,13 +9,17 @@ from typing import Dict
 import numpy as np
 import torch
 import torch.optim as optim
-from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
+import torch_geometric.transforms as T
+from ogb.graphproppred import PygGraphPropPredDataset
 from torch.utils.tensorboard import SummaryWriter
 from torch_geometric.data import DataLoader
+from torch_geometric.datasets import MNISTSuperpixels, ZINC
+from torch_geometric.utils import degree
 from torchvision import transforms
 
 from src.utils.date_utils import get_time_str
 from src.utils.email_utils import GmailNotifier
+from src.utils.evaluate import Evaluator
 from src.utils.graph_prune_utils import tg_dataset_prune
 from src.utils.logging_utils import register_logger, log_args_description, get_clearml_logger, log_command
 from src.utils.lsh_euclidean_tools import LSH
@@ -53,10 +57,11 @@ def get_prune_args(pruning_method: str, num_minhash_funcs: int, random_pruning_p
 
 def get_args():
     parser = argparse.ArgumentParser(description='GNN baselines on ogbgmol* data with Pytorch Geometrics')
-    parser.add_argument('--device', type=int, default=0,
+    parser.add_argument('--device', type=str, default=0,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--gnn', type=str, default='gcn',
-                        help='GNN gcn, or gcn-virtual (default: gcn)', choices=['gcn', ])
+                        help='GNN gcn, or gcn-virtual (default: gcn)',
+                        choices=['gcn', 'gat', 'monet', 'pna', 'sage', 'mlp'])
     parser.add_argument('--drop_ratio', type=float, default=0.5,
                         help='dropout ratio (default: 0.5)')
     parser.add_argument('--num_layer', type=int, default=5,
@@ -71,7 +76,8 @@ def get_args():
                         help='number of workers (default: 0)')
     parser.add_argument('--dataset', type=str, default="ogbg-molhiv",
                         help='dataset name (default: ogbg-molhiv)',
-                        choices=['ogbg-molhiv', 'ogbg-molpcba', 'ogbg-ppa', 'ogbg-code2'])
+                        choices=['ogbg-molhiv', 'ogbg-molpcba', 'ogbg-ppa', 'ogbg-code2', 'mnist', 'zinc', 'reddit',
+                                 'amazon_comp', "Cora", "CiteSeer", "PubMed"])
     parser.add_argument('--feature', type=str, default="full",
                         help='full feature or simple feature')
     parser.add_argument('--filename', type=str, default="",
@@ -83,6 +89,7 @@ def get_args():
     parser.add_argument('--pruning_method', type=str, default='random',
                         choices=["minhash_lsh", "random"])
     parser.add_argument('--random_pruning_prob', type=float, default=.5)
+    parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--num_minhash_funcs', type=int, default=1)
 
     # dataset specific params:
@@ -93,6 +100,8 @@ def get_args():
     parser.add_argument('--test', action="store_true", default=False,
                         help="Run in test mode", )
     parser.add_argument('--sample', type=float, default=1, help='The size of the sampled dataset')
+    parser.add_argument('--line_graph', default=False, action='store_true',
+                        help='Convert every graph G to L(G) as a line graph')
 
     # logging params:
     parser.add_argument('--exps_dir', type=str, help='Target directory to save logging files')
@@ -135,8 +144,14 @@ def register_logging_files(args):
     log_args_description(args)
 
     if args.enable_clearml_logger:
+        tags = [
+            f'Dataset: {args.dataset}',
+            f'Pruning method: {args.pruning_method}',
+            f'Architecture: {args.gnn}',
+        ]
         clearml_logger = get_clearml_logger(project_name="GNN_pruning",
-                                            task_name=f"pruning_method_{args.pruning_method}")
+                                            task_name=f"pruning_method_{args.pruning_method}",
+                                            tags=tags)
 
     return tb_writer, best_results_file, log_file
 
@@ -144,26 +159,56 @@ def register_logging_files(args):
 def load_dataset(args):
     # automatic data loading and splitting
     transform = add_zeros if args.dataset == 'ogbg-ppa' else None
-    dataset = PygGraphPropPredDataset(name=args.dataset, transform=transform)
-
-    if args.dataset == 'obgb-code2':
-        seq_len_list = np.array([len(seq) for seq in dataset.data.y])
-        print('Target seqence less or equal to {} is {}%.'.format(args.max_seq_len,
-                                                                  np.sum(seq_len_list <= args.max_seq_len) / len(
-                                                                      seq_len_list)))
-
-    cls_criterion = get_loss_function(dataset.name)
+    cls_criterion = get_loss_function(args.dataset)
     idx2word_mapper = None
-    split_idx = dataset.get_idx_split()
-    # The following is only used in the evaluation of the ogbg-code classifier.
-    if args.dataset == 'ogbg-code2':
-        vocab2idx, idx2vocab = get_vocab_mapping([dataset.data.y[i] for i in split_idx['train']], args.num_vocab)
-        # specific transformations for the ogbg-code dataset
-        dataset.transform = transforms.Compose(
-            [augment_edge, lambda data: encode_y_to_arr(data, vocab2idx, args.max_seq_len)])
-        idx2word_mapper = partial(decode_arr_to_seq, idx2vocab=idx2vocab)
 
-    return dataset, split_idx, cls_criterion, idx2word_mapper
+    if args.dataset == 'mnist':
+        train_data = MNISTSuperpixels(root='dataset', train=True, transform=T.Polar())
+        dataset = train_data
+        dataset.name = 'mnist'
+        dataset.eval_metric = 'acc'
+        validation_data = []
+        test_data = MNISTSuperpixels(root='dataset', train=False, transform=T.Polar())
+
+        train_data = list(train_data)
+        test_data = list(test_data)
+
+    elif args.dataset == 'zinc':
+        train_data = ZINC(root='dataset', subset=True, split='train')
+
+        dataset = train_data
+        dataset.name = 'zinc'
+        validation_data = ZINC(root='dataset', subset=True, split='val')
+        test_data = ZINC(root='dataset', subset=True, split='test')
+        dataset.eval_metric = 'mae'
+
+        train_data = list(train_data)
+        validation_data = list(validation_data)
+        test_data = list(test_data)
+
+    elif args.dataset in ['ogbg-molhiv', 'ogbg-molpcba', 'ogbg-ppa', 'ogbg-code2']:
+        dataset = PygGraphPropPredDataset(name=args.dataset, transform=transform)
+
+        if args.dataset == 'obgb-code2':
+            seq_len_list = np.array([len(seq) for seq in dataset.data.y])
+            max_seq_len = args.max_seq_len
+            num_less_or_equal_to_max = np.sum(seq_len_list <= args.max_seq_len) / len(seq_len_list)
+            print(f'Target sequence less or equal to {max_seq_len} is {num_less_or_equal_to_max}%.')
+
+        split_idx = dataset.get_idx_split()
+        # The following is only used in the evaluation of the ogbg-code classifier.
+        if args.dataset == 'ogbg-code2':
+            vocab2idx, idx2vocab = get_vocab_mapping([dataset.data.y[i] for i in split_idx['train']], args.num_vocab)
+            # specific transformations for the ogbg-code dataset
+            dataset.transform = transforms.Compose(
+                [augment_edge, lambda data: encode_y_to_arr(data, vocab2idx, args.max_seq_len)])
+            idx2word_mapper = partial(decode_arr_to_seq, idx2vocab=idx2vocab)
+
+        train_data = list(dataset[split_idx["train"]])
+        validation_data = list(dataset[split_idx["valid"]])
+        test_data = list(dataset[split_idx["test"]])
+
+    return dataset, train_data, validation_data, test_data, cls_criterion, idx2word_mapper
 
 
 def prune_datasets(train_data, validation_data, test_data, args):
@@ -182,13 +227,21 @@ def prune_datasets(train_data, validation_data, test_data, args):
 
 
 def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruning_params=None):
+    if original_dataset is None or len(original_dataset) == 0:
+        return None
     if args.pruning_method == 'minhash_lsh':
         if pruning_params is None:
             dim_nodes = original_dataset[0].x.shape[1] if len(original_dataset[0].x.shape) == 2 else 0
             lsh_num_funcs = args.num_minhash_funcs
-            sparsity = 2
+            sparsity = 20
             std_of_threshold = 1
-            dim_edges = original_dataset[0].edge_attr.shape[1] if len(original_dataset[0].edge_attr.shape) == 2 else 0
+            dim_edges = 0
+            if original_dataset[0].edge_attr is not None:
+                if len(original_dataset[0].edge_attr.shape) == 1:
+                    dim_edges = 1
+                else:
+                    dim_edges = original_dataset[0].edge_attr.shape[1]
+
             minhash = MinHashRep(lsh_num_funcs, random, prime=2147483647)
             pruning_params = {
                 "minhash": minhash,
@@ -238,36 +291,34 @@ def main():
 
     tb_writer, best_results_file, log_file = register_logging_files(args)
 
-    device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() and args.device != 'cpu' else torch.device("cpu")
 
     if args.proxy:
         set_proxy()
 
-    dataset, split_idx, cls_criterion, idx2word_mapper = load_dataset(args)
+    dataset, train_data, validation_data, test_data, cls_criterion, idx2word_mapper = load_dataset(args)
 
-    train_idx = split_idx["train"]
-    val_idx = split_idx["valid"]
-    test_idx = split_idx["test"]
     if args.test:
-        train_idx = train_idx[:100]
-        val_idx = val_idx[:100]
-        test_idx = test_idx[:100]
+        train_data = train_data[:100]
+        validation_data = validation_data[:100]
+        test_data = test_data[:100]
     elif args.sample != 1:
         logging.info(f"Sampling {args.sample * 100}% of the dataset")
-        train_idx = list(np.random.choice(train_idx, int(len(train_idx) * args.sample), replace=False))
-        val_idx = list(np.random.choice(val_idx, int(len(val_idx) * args.sample), replace=False))
-        test_idx = list(np.random.choice(test_idx, int(len(test_idx) * args.sample), replace=False))
+        train_idx = list(np.random.choice(len(train_data), int(len(train_data) * args.sample), replace=False))
+        val_idx = list(np.random.choice(len(validation_data), int(len(validation_data) * args.sample), replace=False))
+        test_idx = list(np.random.choice(len(test_data), int(len(test_data) * args.sample), replace=False))
 
-    train_data = list(dataset[train_idx])
-    validation_data = list(dataset[val_idx])
-    test_data = list(dataset[test_idx])
+        train_data = [train_data[i] for i in train_idx]
+        validation_data = [validation_data[i] for i in val_idx]
+        test_data = [test_data[i] for i in test_idx]
 
     old_avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
 
     # Prune the train data and cache the parameters for further usage
     train_data, validation_data, test_data = prune_datasets(train_data, validation_data, test_data, args)
 
-    avg_edge_count = np.mean([g.edge_index.shape[1] for g in train_data])
+    avg_edge_count = np.mean(
+        [idx.shape[1] for idx in (sample.edge_index for sample in train_data if sample.num_edges > 0)])
     logging.info(
         f"Old average number of edges: {old_avg_edge_count}. New one: {avg_edge_count}. Change: {(old_avg_edge_count - avg_edge_count) / old_avg_edge_count * 100}\%")
 
@@ -290,7 +341,7 @@ def main():
     model = create_model(dataset=dataset, emb_dim=args.emb_dim,
                          dropout_ratio=args.drop_ratio, device=device, num_layers=args.num_layer,
                          max_seq_len=args.max_seq_len, num_vocab=args.num_vocab, model_type=args.gnn)
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     valid_curve = []
     test_curve = []
@@ -315,29 +366,40 @@ def main():
         logging.info({'Train': train_perf, 'Validation': valid_perf, 'Test': test_perf})
 
         train_curve.append(train_perf[dataset.eval_metric])
-        valid_curve.append(valid_perf[dataset.eval_metric])
+
+        if valid_perf is not None:
+            valid_curve.append(valid_perf[dataset.eval_metric])
         test_curve.append(test_perf[dataset.eval_metric])
 
         if tb_writer is not None:
-            tb_writer.add_scalars(dataset.eval_metric,
-                                  {'Train': train_perf[dataset.eval_metric],
-                                   'Validation': valid_perf[dataset.eval_metric],
-                                   'Test': test_perf[dataset.eval_metric]},
-                                  epoch)
+            if valid_perf is not None:
+                tb_writer.add_scalars(dataset.eval_metric,
+                                      {'Train': train_perf[dataset.eval_metric],
+                                       'Validation': valid_perf[dataset.eval_metric],
+                                       'Test': test_perf[dataset.eval_metric]},
+                                      epoch)
+            else:
+                tb_writer.add_scalars(dataset.eval_metric,
+                                      {'Train': train_perf[dataset.eval_metric],
+                                       'Test': test_perf[dataset.eval_metric]},
+                                      epoch)
 
-    best_val_epoch = np.argmax(np.array(valid_curve)).item()
+    best_val_epoch = np.argmax(np.array(valid_curve)).item() if valid_perf is not None else np.argmax(
+        np.array(test_curve)).item()
     best_train = max(train_curve)
     finish_time = time()
     logging.info(f'Finished training! Elapsed time: {(finish_time - start_time) / 60} minutes')
-    logging.info('Best validation score: {}'.format(valid_curve[best_val_epoch]))
+    if valid_perf is not None:
+        logging.info('Best validation score: {}'.format(valid_curve[best_val_epoch]))
     logging.info('Test score: {}'.format(test_curve[best_val_epoch]))
 
     best_results = {'Train': train_curve[best_val_epoch],
-                    'Val': valid_curve[best_val_epoch],
                     'Test': test_curve[best_val_epoch],
                     'BestTrain': best_train,
                     r'training iter/sec': training_iter_per_sec,
                     r'test iter/sec': test_iter_per_sec}
+    if valid_perf is not None:
+        best_results['Val'] = valid_curve[best_val_epoch]
 
     if best_results_file is not None:
         with open(best_results_file, 'w') as fp:

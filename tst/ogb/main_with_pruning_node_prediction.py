@@ -1,0 +1,200 @@
+import numpy as np
+import torch
+import torch.nn.functional as F
+from sklearn.metrics import f1_score, accuracy_score
+from sklearn.model_selection import train_test_split
+from torch_geometric.data import NeighborSampler
+from torch_geometric.datasets import Reddit, Amazon, Planetoid
+from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
+
+from src.archs.gat_sage import GATSage
+from src.archs.mlp_node_prediction import MLP
+from src.archs.sage import SAGE
+from src.utils.date_utils import get_time_str
+from src.utils.logging_utils import get_clearml_logger
+from tst.ogb.main_pyg_with_pruning import prune_dataset, get_args
+
+
+# Created by: Eitan Kosman, BCAI
+
+
+def train(epoch, dataset, train_loader, model, device, optimizer, tb_writer):
+    """
+    Performs a training episode.
+
+    @param epoch: the epoch number
+    @param dataset: a pytorch geometric dataset object
+    @param train_loader: dataset sampler for the node prediction task
+    @param model: GNN to use for inference
+    @param device: the device on which we perform the calculations
+    @param optimizer: a pytorch optimizer object for updating the parameters of the GNN
+    """
+
+    model.train()
+
+    pbar = tqdm(total=int(dataset.data.train_mask.sum()))
+    pbar.set_description(f'Epoch {epoch:02d}')
+
+    total_loss = total_correct = 0
+
+    x = dataset.data.x.to(device)
+    y = dataset.data.y.squeeze().to(device)
+    y_pred = torch.tensor([])
+    y_true = torch.tensor([])
+
+    for batch_size, n_id, adjs in train_loader:
+        # `adjs` holds a list of `(edge_index, e_id, size)` tuples.
+        adjs = [adj.to(device) for adj in adjs]
+
+        optimizer.zero_grad()
+        out = model(x[n_id], adjs)
+        loss = F.nll_loss(out, y[n_id[:batch_size]])
+        loss.backward()
+        optimizer.step()
+
+        total_loss += float(loss)
+        total_correct += int(out.argmax(dim=-1).eq(y[n_id[:batch_size]]).sum())
+        pbar.update(batch_size)
+        y_pred = torch.cat([y_pred, out.argmax(dim=-1)])
+        y_true = torch.cat([y_true, y[n_id[:batch_size]]])
+
+        if tb_writer is not None:
+            tb_writer.add_scalar('Loss/train_iterations', loss.item(), tb_writer.iteration)
+            tb_writer.iteration += 1
+
+    pbar.close()
+
+    loss = total_loss / len(train_loader)
+    approx_acc = total_correct / int(dataset.data.train_mask.sum())
+    f1 = f1_score(y_true, y_pred, average='micro')
+
+    return loss, approx_acc, f1
+
+
+@torch.no_grad()
+def test(dataset, subgraph_loader, model, device):
+    """
+    Performs a testing episode.
+
+    @param dataset: a pytorch geometric dataset object
+    @param subgraph_loader: dataset sampler for the node prediction task
+    @param model: GNN to use for inference
+    @param device: the device on which we perform the calculations
+    """
+
+    model.eval()
+
+    out = model.inference(dataset.data.x.to(device), subgraph_loader, device)
+
+    y_true = dataset.data.y.cpu().unsqueeze(-1)
+    y_pred = out.argmax(dim=-1, keepdim=True)
+
+    results = []
+    for mask in [dataset.data.train_mask, dataset.data.val_mask, dataset.data.test_mask]:
+        results += [accuracy_score(y_true[mask], y_pred[mask])]
+
+    return results
+
+
+def get_dataset(dataset_name):
+    """
+    Retrieves the dataset corresponding to the given name.
+    """
+    path = 'dataset'
+    if dataset_name == 'reddit':
+        dataset = Reddit(path)
+    elif dataset_name == 'amazon_comp':
+        dataset = Amazon(path, name="Computers")
+        data = dataset.data
+        idx_train, idx_test = train_test_split(list(range(data.x.shape[0])), test_size=0.4, random_state=42)
+        idx_val, idx_test = train_test_split(idx_test, test_size=0.5, random_state=42)
+        data.train_mask = torch.tensor(idx_train)
+        data.val_mask = torch.tensor(idx_val)
+        data.test_mask = torch.tensor(idx_test)
+        dataset.data = data
+    elif dataset_name in ["Cora", "CiteSeer", "PubMed"]:
+        dataset = Planetoid(path, name=dataset_name, split="full", )
+    else:
+        raise NotImplementedError
+
+    return dataset
+
+
+def get_model(num_features, num_classes, arch):
+    """
+    Retrieves the model corresponding to the given name.
+
+    @param num_features: the dimensionality of the node features
+    @param num_classes: number of target labels
+    @param arch: name of the GNN architecture
+    """
+    if arch == 'sage':
+        model = SAGE(in_channels=num_features, out_channels=num_classes)
+    elif arch == 'gat':
+        model = GATSage(num_features=num_features, num_classes=num_classes)
+    elif arch == 'mlp':
+        model = MLP(in_features=num_features, out_features=num_classes)
+    else:
+        raise NotImplementedError
+
+    return model
+
+
+def main():
+    args = get_args()
+    dataset = get_dataset(args.dataset)
+    data = dataset.data
+    tb_writer = SummaryWriter()
+    tb_writer.iteration = 0
+
+    device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() and args.device != 'cpu' else torch.device("cpu")
+    model = get_model(dataset.data.num_features, dataset.num_classes, args.gnn)
+    model = model.to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+
+    old_edge_count = data.edge_index.shape[1]
+
+    # Pass the whole graph to the pruning mechanism. Consider it as one sample
+    prune_dataset([data], args, random=np.random.RandomState(0), pruning_params=None)
+
+    edge_count = data.edge_index.shape[1]
+    print(
+        f"Old number of edges: {old_edge_count}. New one: {edge_count}. Change: {(old_edge_count - edge_count) / old_edge_count * 100}\%")
+
+    train_loader = NeighborSampler(data.edge_index, node_idx=data.train_mask,
+                                   sizes=[25, 10], batch_size=1024, shuffle=True,
+                                   num_workers=12)
+    subgraph_loader = NeighborSampler(data.edge_index, node_idx=None, sizes=[-1],
+                                      batch_size=1024, shuffle=False,
+                                      num_workers=12)
+
+    if args.enable_clearml_logger:
+        tags = [
+            f'Dataset: {args.dataset}',
+            f'Pruning method: {args.pruning_method}',
+            f'Architecture: {args.gnn}',
+        ]
+        pruning_param = args.num_minhash_funcs if args.pruning_method == 'minhas_lsh' else args.random_pruning_prob
+        tags.append(f'pruning_param: {pruning_param}')
+        clearml_logger = get_clearml_logger(project_name="GNN_pruning",
+                                            task_name=get_time_str(),
+                                            tags=tags)
+
+    for epoch in range(1, args.epochs + 1):
+        loss, acc, f1 = train(epoch, dataset, train_loader, model, device, optimizer, tb_writer)
+        print(f'Epoch {epoch:02d}, Loss: {loss:.4f}, Approx. Train: {f1:.4f}')
+
+        train_acc, val_acc, test_acc = test(dataset, subgraph_loader, model, device)
+        print(f'Train ACC: {train_acc:.4f}, Val ACC: {val_acc:.4f}, '
+              f'Test ACC: {test_acc:.4f}')
+
+        tb_writer.add_scalars('Accuracy',
+                              {'train': train_acc,
+                               'Validation': val_acc,
+                               'Test': test_acc},
+                              epoch)
+
+
+if __name__ == '__main__':
+    main()

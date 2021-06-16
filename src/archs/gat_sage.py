@@ -1,4 +1,7 @@
 import torch
+from torch import Tensor
+from torch_geometric.data import NeighborSampler
+from torch_geometric.data.sampler import EdgeIndex
 from torch_geometric.nn import GATConv
 from tqdm import tqdm
 import torch.nn.functional as F
@@ -8,6 +11,7 @@ import torch.nn.functional as F
 # This is an implementation of architecture for performing node prediction using graph attention layers
 # It uses the same inference algorithm as in GraphSAGE paper, but uses GAT layers instead of the original graphSAGE operation
 # It is implemented according to the appendices of FastGAT: https://arxiv.org/abs/2006.08796
+from typing import List
 
 
 class GATSage(torch.nn.Module):
@@ -19,7 +23,7 @@ class GATSage(torch.nn.Module):
         self.conv2 = GATConv(8 * self.n_heads, num_classes, heads=1)
         self.convs = torch.nn.ModuleList([self.conv1, self.conv2])
 
-    def forward(self, x, adjs):
+    def forward(self, x: Tensor, adjs: List[EdgeIndex]):
         for i, (edge_index, _, size) in enumerate(adjs):
             x_target = x[:size[1]]  # Target nodes are always placed first.
             x = self.convs[i]((x, x_target), edge_index)
@@ -27,7 +31,7 @@ class GATSage(torch.nn.Module):
                 x = F.elu(x)
         return x.log_softmax(dim=-1)
 
-    def inference(self, x_all, subgraph_loader, device):
+    def inference(self, x_all: Tensor, subgraph_loader: NeighborSampler, device: torch.device):
         pbar = tqdm(total=x_all.size(0) * self.num_layers)
         pbar.set_description('Evaluating')
 

@@ -1,8 +1,11 @@
 import torch
+from torch import Tensor
+from torch_geometric.data import NeighborSampler
+from torch_geometric.data.sampler import EdgeIndex
 from torch_geometric.nn import SAGEConv
 from tqdm import tqdm
 import torch.nn.functional as F
-
+from typing import List
 
 """
 Architecture from: https://github.com/rusty1s/pytorch_geometric/blob/master/examples/ogbn_products_sage.py
@@ -19,7 +22,7 @@ class SAGE(torch.nn.Module):
         self.convs.append(SAGEConv(in_channels, hidden_channels))
         self.convs.append(SAGEConv(hidden_channels, out_channels))
 
-    def forward(self, x, adjs):
+    def forward(self, x: Tensor, adjs: List[EdgeIndex]):
         # `train_loader` computes the k-hop neighborhood of a batch of nodes,
         # and returns, for each layer, a bipartite graph object, holding the
         # bipartite edges `edge_index`, the index `e_id` of the original edges,
@@ -34,7 +37,7 @@ class SAGE(torch.nn.Module):
                 x = F.dropout(x, p=0.5, training=self.training)
         return x.log_softmax(dim=-1)
 
-    def inference(self, x_all, subgraph_loader, device):
+    def inference(self, x_all: Tensor, subgraph_loader: NeighborSampler, device: torch.device):
         pbar = tqdm(total=x_all.size(0) * self.num_layers)
         pbar.set_description('Evaluating')
 

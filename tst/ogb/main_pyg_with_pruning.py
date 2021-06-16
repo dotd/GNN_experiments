@@ -57,7 +57,7 @@ def get_prune_args(pruning_method: str, num_minhash_funcs: int, random_pruning_p
 
 def get_args():
     parser = argparse.ArgumentParser(description='GNN baselines on ogbgmol* data with Pytorch Geometrics')
-    parser.add_argument('--device', type=int, default=0,
+    parser.add_argument('--device', type=str, default=0,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--gnn', type=str, default='gcn',
                         help='GNN gcn, or gcn-virtual (default: gcn)',
@@ -291,8 +291,7 @@ def main():
 
     tb_writer, best_results_file, log_file = register_logging_files(args)
 
-    device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
-    device = torch.device("cpu")
+    device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() and args.device != 'cpu' else torch.device("cpu")
 
     if args.proxy:
         set_proxy()

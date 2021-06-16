@@ -58,7 +58,7 @@ class Evaluator(OriginalEvaluator):
                 y_pred = y_pred.detach().cpu().numpy()
 
             ## check type
-            if not (isinstance(y_true, np.ndarray) and isinstance(y_true, np.ndarray)):
+            if not isinstance(y_true, np.ndarray):
                 raise RuntimeError('Arguments to Evaluator need to be either numpy ndarray or torch tensor')
 
             if not y_true.shape == y_pred.shape:

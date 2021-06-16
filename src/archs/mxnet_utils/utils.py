@@ -17,6 +17,9 @@ except ImportError:
     sym = None
 
 
+# Implementation from: https://github.com/zetayue/MXMNet
+
+
 class EMA:
     def __init__(self, model, decay):
         self.decay = decay

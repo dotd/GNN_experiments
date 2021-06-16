@@ -20,6 +20,7 @@ from torchvision import transforms
 from src.utils.date_utils import get_time_str
 from src.utils.email_utils import GmailNotifier
 from src.utils.evaluate import Evaluator
+from src.utils.extract_target_transform import ExtractTargetTransform
 from src.utils.graph_prune_utils import tg_dataset_prune
 from src.utils.logging_utils import register_logger, log_args_description, get_clearml_logger, log_command
 from src.utils.lsh_euclidean_tools import LSH
@@ -78,8 +79,8 @@ def get_args():
                         help='dataset name (default: ogbg-molhiv)',
                         choices=['ogbg-molhiv', 'ogbg-molpcba', 'ogbg-ppa', 'ogbg-code2', 'mnist', 'zinc', 'reddit',
                                  'amazon_comp', "Cora", "CiteSeer", "PubMed", 'QM9'])
-    parser.add_argument('--feature', type=str, default="full",
-                        help='full feature or simple feature')
+    parser.add_argument('--target', type=int, default=0, help='for datasets with multiple tasks, provide the target index')
+    parser.add_argument('--feature', type=str, default="full", help='full feature or simple feature')
     parser.add_argument('--filename', type=str, default="",
                         help='filename to output result (default: )')
     parser.add_argument('--proxy', action="store_true", default=False,
@@ -150,7 +151,7 @@ def register_logging_files(args):
             f'Architecture: {args.gnn}',
         ]
         clearml_logger = get_clearml_logger(project_name="GNN_pruning",
-                                            task_name=f"pruning_method_{args.pruning_method}",
+                                            task_name=get_time_str(),
                                             tags=tags)
 
     return tb_writer, best_results_file, log_file
@@ -174,7 +175,7 @@ def load_dataset(args):
         test_data = list(test_data)
 
     elif args.dataset == 'QM9':
-        dataset = QM9(root='dataset')
+        dataset = QM9(root='dataset', transform=ExtractTargetTransform(args.target)).shuffle()
         dataset.name = 'QM9'
         dataset.eval_metric = 'mae'
         # Split dataset

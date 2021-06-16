@@ -4,10 +4,12 @@ import torch.nn as nn
 from torch_geometric.nn import global_add_pool, radius
 from torch_geometric.utils import remove_self_loops
 from torch_sparse import SparseTensor
-from torch_scatter import scatter
 
 from src.archs.mxnet_utils.layers import Global_MP, Local_MP
 from src.archs.mxnet_utils.utils import BesselBasisLayer, SphericalBasisLayer, MLP
+
+
+# Implementation from: https://github.com/zetayue/MXMNet
 
 
 class Config(object):
@@ -25,7 +27,7 @@ class MXMNet(nn.Module):
         self.n_layer = n_layer
         self.cutoff = cutoff
 
-        self.embeddings = nn.Parameter(torch.ones((5, self.dim)))
+        self.embeddings = nn.Parameter(torch.ones((30, self.dim)))
 
         self.rbf_l = BesselBasisLayer(16, 5, envelope_exponent)
         self.rbf_g = BesselBasisLayer(16, self.cutoff, envelope_exponent)
@@ -86,11 +88,12 @@ class MXMNet(nn.Module):
 
     def forward(self, data):
         x = data.x
+        z = data.z
         edge_index = data.edge_index
         pos = data.pos
         batch = data.batch
         # Initialize node embeddings
-        h = torch.index_select(self.embeddings, 0, x.long())
+        h = torch.index_select(self.embeddings, 0, z.long())  # TODO: check if it's supposed to be z or x
 
         # Get the edges and pairwise distances in the local layer
         edge_index_l, _ = remove_self_loops(edge_index)

@@ -6,6 +6,9 @@ from torch_scatter import scatter
 from .utils import MLP, Res, MessagePassing
 
 
+# Implementation from: https://github.com/zetayue/MXMNet
+
+
 class Global_MP(MessagePassing):
 
     def __init__(self, dim: int):

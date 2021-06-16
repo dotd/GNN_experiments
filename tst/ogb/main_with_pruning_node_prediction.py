@@ -130,11 +130,11 @@ def get_model(num_features, num_classes, arch):
     @param arch: name of the GNN architecture
     """
     if arch == 'sage':
-        model = SAGE(num_features, 256, num_classes)
+        model = SAGE(in_channels=num_features, out_channels=num_classes)
     elif arch == 'gat':
-        model = GATSage(num_features, num_classes)
+        model = GATSage(num_features=num_features, num_classes=num_classes)
     elif arch == 'mlp':
-        model = MLP(num_features, num_classes, 2)
+        model = MLP(in_features=num_features, out_features=num_classes)
     else:
         raise NotImplementedError
 

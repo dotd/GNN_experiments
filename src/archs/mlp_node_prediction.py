@@ -14,7 +14,7 @@ class MLP(nn.Module):
     between every 2 layers. The output of the module has no activation
     """
 
-    def __init__(self, in_features: int, out_features: int, n_steps: int, dropout: float = None, bias: bool = True):
+    def __init__(self, in_features: int, out_features: int, n_steps: int = 2, dropout: float = None, bias: bool = True):
         """
         @param in_features - number of input features for the first layer
         @param out_features - number of outputs of the last layer

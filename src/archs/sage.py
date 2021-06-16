@@ -13,7 +13,7 @@ Architecture from: https://github.com/rusty1s/pytorch_geometric/blob/master/exam
 
 
 class SAGE(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels):
+    def __init__(self, in_channels, out_channels, hidden_channels):
         super(SAGE, self).__init__()
 
         self.num_layers = 2

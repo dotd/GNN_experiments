@@ -13,7 +13,7 @@ import torch_geometric.transforms as T
 from ogb.graphproppred import PygGraphPropPredDataset
 from torch.utils.tensorboard import SummaryWriter
 from torch_geometric.data import DataLoader
-from torch_geometric.datasets import MNISTSuperpixels, ZINC, MoleculeNet
+from torch_geometric.datasets import MNISTSuperpixels, ZINC, MoleculeNet, QM9
 from torch_geometric.utils import degree
 from torchvision import transforms
 
@@ -61,7 +61,7 @@ def get_args():
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--gnn', type=str, default='gcn',
                         help='GNN gcn, or gcn-virtual (default: gcn)',
-                        choices=['gcn', 'gat', 'monet', 'pna', 'sage', 'mlp'])
+                        choices=['gcn', 'gat', 'monet', 'pna', 'sage', 'mlp', 'mxnet'])
     parser.add_argument('--drop_ratio', type=float, default=0.5,
                         help='dropout ratio (default: 0.5)')
     parser.add_argument('--num_layer', type=int, default=5,
@@ -77,7 +77,7 @@ def get_args():
     parser.add_argument('--dataset', type=str, default="ogbg-molhiv",
                         help='dataset name (default: ogbg-molhiv)',
                         choices=['ogbg-molhiv', 'ogbg-molpcba', 'ogbg-ppa', 'ogbg-code2', 'mnist', 'zinc', 'reddit',
-                                 'amazon_comp', "Cora", "CiteSeer", "PubMed"])
+                                 'amazon_comp', "Cora", "CiteSeer", "PubMed", 'QM9'])
     parser.add_argument('--feature', type=str, default="full",
                         help='full feature or simple feature')
     parser.add_argument('--filename', type=str, default="",
@@ -171,6 +171,18 @@ def load_dataset(args):
         test_data = MNISTSuperpixels(root='dataset', train=False, transform=T.Polar())
 
         train_data = list(train_data)
+        test_data = list(test_data)
+
+    elif args.dataset == 'QM9':
+        dataset = QM9(root='dataset')
+        dataset.name = 'QM9'
+        dataset.eval_metric = 'mae'
+        # Split dataset
+        train_data = dataset[:110000]
+        validation_data = dataset[110000:120000]
+        test_data = dataset[120000:]
+        train_data = list(train_data)
+        validation_data = list(validation_data)
         test_data = list(test_data)
 
     elif args.dataset == 'zinc':

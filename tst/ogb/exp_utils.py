@@ -120,7 +120,7 @@ def get_loss_function(dataset_name: str):
     loss = None
     if dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba':
         loss = torch.nn.BCEWithLogitsLoss()
-    elif dataset_name == 'zinc':
+    elif dataset_name in ['zinc', 'QM9']:
         loss = torch.nn.L1Loss()
     elif dataset_name in ['ogbg-code2', 'ogbg-ppa', 'mnist', 'cora', 'reddit']:
         loss = torch.nn.CrossEntropyLoss()

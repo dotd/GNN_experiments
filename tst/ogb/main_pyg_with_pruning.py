@@ -173,9 +173,6 @@ def load_dataset(args):
         train_data = list(train_data)
         test_data = list(test_data)
 
-    elif args.dataset in ["ESOL", "FreeSolv", "Lipo", "PCBA", "MUV", "HIV", "BACE", "BBPB", "Tox21", "ToxCast", "SIDER", "ClinTox"]:
-        dataset = MoleculeNet(root='dataset', name=args.dataset)
-
     elif args.dataset == 'zinc':
         train_data = ZINC(root='dataset', subset=True, split='train')
 

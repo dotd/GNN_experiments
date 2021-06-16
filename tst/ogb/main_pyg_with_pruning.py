@@ -176,11 +176,6 @@ def load_dataset(args):
     elif args.dataset == 'zinc':
         train_data = ZINC(root='dataset', subset=True, split='train')
 
-        deg = torch.zeros(5, dtype=torch.long)
-        for data in train_data:
-            d = degree(data.edge_index[1], num_nodes=data.num_nodes, dtype=torch.long)
-            deg += torch.bincount(d, minlength=deg.numel())
-
         dataset = train_data
         dataset.name = 'zinc'
         validation_data = ZINC(root='dataset', subset=True, split='val')
@@ -196,9 +191,9 @@ def load_dataset(args):
 
         if args.dataset == 'obgb-code2':
             seq_len_list = np.array([len(seq) for seq in dataset.data.y])
-            print('Target seqence less or equal to {} is {}%.'.format(args.max_seq_len,
-                                                                      np.sum(seq_len_list <= args.max_seq_len) / len(
-                                                                          seq_len_list)))
+            max_seq_len = args.max_seq_len
+            num_less_or_equal_to_max = np.sum(seq_len_list <= args.max_seq_len) / len(seq_len_list)
+            print(f'Target sequence less or equal to {max_seq_len} is {num_less_or_equal_to_max}%.')
 
         split_idx = dataset.get_idx_split()
         # The following is only used in the evaluation of the ogbg-code classifier.

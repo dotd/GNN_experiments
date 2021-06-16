@@ -148,8 +148,7 @@ def main():
     tb_writer = SummaryWriter()
     tb_writer.iteration = 0
 
-    device = torch.device('cpu')
-    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = get_model(dataset.data.num_features, dataset.num_classes, args.gnn)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)

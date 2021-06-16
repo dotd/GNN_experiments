@@ -24,20 +24,20 @@ class Evaluator(OriginalEvaluator):
         mnist, zinc, etc. are not support by the original evaluator. Here, I manually define the required
         parameters for using this evaluator for these datasets 
         """
+        self.name = name
+        self.num_tasks = 1
 
         if name in ['mnist']:
             # Add here datasets that use ACCURACY for evaluation
-            self.name = name
-            self.num_tasks = 1
             self.eval_metric = 'acc'
         elif name in ['zinc']:
             # Add here datasets that use MAE for evaluation
-            self.name = name
-            self.num_tasks = 1
             self.eval_metric = 'mae'
+        else:
+            raise NotImplementedError(f"Dataset {name} not implemented for Evaluator")
 
     def _parse_and_check_input(self, input_dict):
-        if self.eval_metric == 'rocauc' or self.eval_metric == 'ap' or self.eval_metric == 'rmse' or self.eval_metric == 'acc' or self.eval_metric == 'mae':
+        if self.eval_metric in ['rocauc', 'ap', 'rmse', 'acc', 'mae']:
             if not 'y_true' in input_dict:
                 raise RuntimeError('Missing key of y_true')
             if not 'y_pred' in input_dict:
@@ -93,7 +93,7 @@ class Evaluator(OriginalEvaluator):
             return seq_ref, seq_pred
 
         else:
-            raise ValueError('Undefined eval metric %s ' % (self.eval_metric))
+            raise ValueError('Undefined eval metric %s ' % self.eval_metric)
 
     def eval(self, input_dict):
         if self.eval_metric == 'mae':

@@ -15,7 +15,7 @@ class GATSage(torch.nn.Module):
         self.n_heads = n_heads
         self.num_layers = 2
         self.conv1 = GATConv(num_features, 8, heads=self.n_heads)
-        self.conv2 = GATConv(8*self.n_heads, num_classes, heads=1)
+        self.conv2 = GATConv(8 * self.n_heads, num_classes, heads=1)
         self.convs = torch.nn.ModuleList([self.conv1, self.conv2])
 
     def forward(self, x, adjs):

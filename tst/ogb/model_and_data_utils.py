@@ -126,15 +126,14 @@ def add_zeros(data: Data) -> Data:
     data.x = torch.zeros(data.num_nodes, dtype=torch.long)
     return data
 
-i=0
+
 def to_line_graph(data: Data, directed: bool = True) -> Data:
     """
     Convert a graph G to its corresponding line-graph L(G)
-    :param data: a torch_gemoetric Data object representing representing a graph
+    Args:
+        data: a torch_gemoetric Data object representing representing a graph
+        directed: whether the original graph is directed or undirected
     """
-    global i
-    print(i)
-    i+= 1
     original_edge_attrs = data.edge_attr
     original_edge_names = [(from_.item(), to_.item()) for from_, to_ in zip(data.edge_index[0, :], data.edge_index[1, :])]
     original_edge_to_attr = {e: attr for e, attr in zip(original_edge_names, original_edge_attrs)}

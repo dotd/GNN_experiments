@@ -175,8 +175,9 @@ def main():
             f'Pruning method: {args.pruning_method}',
             f'Architecture: {args.gnn}',
         ]
+        pruning_param_name = 'num_minhash_funcs' if args.pruning_method == 'minhas_lsh' else 'random_pruning_prob'
         pruning_param = args.num_minhash_funcs if args.pruning_method == 'minhas_lsh' else args.random_pruning_prob
-        tags.append(f'pruning_param: {pruning_param}')
+        tags.append(f'{pruning_param_name}: {pruning_param}')
         clearml_logger = get_clearml_logger(project_name="GNN_pruning",
                                             task_name=get_time_str(),
                                             tags=tags)

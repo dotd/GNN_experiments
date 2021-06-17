@@ -13,13 +13,15 @@ import torch_geometric.transforms as T
 from ogb.graphproppred import PygGraphPropPredDataset
 from torch.utils.tensorboard import SummaryWriter
 from torch_geometric.data import DataLoader
-from torch_geometric.datasets import MNISTSuperpixels, ZINC
+from torch_geometric.datasets import MNISTSuperpixels, ZINC, MoleculeNet, QM9
 from torch_geometric.utils import degree
 from torchvision import transforms
+from warmup_scheduler import GradualWarmupScheduler
 
 from src.utils.date_utils import get_time_str
 from src.utils.email_utils import GmailNotifier
 from src.utils.evaluate import Evaluator
+from src.utils.extract_target_transform import ExtractTargetTransform
 from src.utils.graph_prune_utils import tg_dataset_prune
 from src.utils.logging_utils import register_logger, log_args_description, get_clearml_logger, log_command
 from src.utils.lsh_euclidean_tools import LSH
@@ -61,7 +63,7 @@ def get_args():
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--gnn', type=str, default='gcn',
                         help='GNN gcn, or gcn-virtual (default: gcn)',
-                        choices=['gcn', 'gat', 'monet', 'pna', 'sage', 'mlp'])
+                        choices=['gcn', 'gat', 'monet', 'pna', 'sage', 'mlp', 'mxmnet'])
     parser.add_argument('--drop_ratio', type=float, default=0.5,
                         help='dropout ratio (default: 0.5)')
     parser.add_argument('--num_layer', type=int, default=5,
@@ -77,9 +79,9 @@ def get_args():
     parser.add_argument('--dataset', type=str, default="ogbg-molhiv",
                         help='dataset name (default: ogbg-molhiv)',
                         choices=['ogbg-molhiv', 'ogbg-molpcba', 'ogbg-ppa', 'ogbg-code2', 'mnist', 'zinc', 'reddit',
-                                 'amazon_comp', "Cora", "CiteSeer", "PubMed"])
-    parser.add_argument('--feature', type=str, default="full",
-                        help='full feature or simple feature')
+                                 'amazon_comp', "Cora", "CiteSeer", "PubMed", 'QM9'])
+    parser.add_argument('--target', type=int, default=0, help='for datasets with multiple tasks, provide the target index')
+    parser.add_argument('--feature', type=str, default="full", help='full feature or simple feature')
     parser.add_argument('--filename', type=str, default="",
                         help='filename to output result (default: )')
     parser.add_argument('--proxy', action="store_true", default=False,
@@ -90,6 +92,7 @@ def get_args():
                         choices=["minhash_lsh", "random"])
     parser.add_argument('--random_pruning_prob', type=float, default=.5)
     parser.add_argument('--lr', type=float, default=0.001)
+    parser.add_argument('--wd', type=float, default=0, help='Weight decay value.')
     parser.add_argument('--num_minhash_funcs', type=int, default=1)
 
     # dataset specific params:
@@ -149,8 +152,10 @@ def register_logging_files(args):
             f'Pruning method: {args.pruning_method}',
             f'Architecture: {args.gnn}',
         ]
+        pruning_param = args.num_minhash_funcs if args.pruning_method == 'minhas_lsh' else args.random_pruning_prob
+        tags.append(f'pruning_param: {pruning_param}')
         clearml_logger = get_clearml_logger(project_name="GNN_pruning",
-                                            task_name=f"pruning_method_{args.pruning_method}",
+                                            task_name=get_time_str(),
                                             tags=tags)
 
     return tb_writer, best_results_file, log_file
@@ -171,6 +176,18 @@ def load_dataset(args):
         test_data = MNISTSuperpixels(root='dataset', train=False, transform=T.Polar())
 
         train_data = list(train_data)
+        test_data = list(test_data)
+
+    elif args.dataset == 'QM9':
+        dataset = QM9(root='dataset', transform=ExtractTargetTransform(args.target)).shuffle()
+        dataset.name = 'QM9'
+        dataset.eval_metric = 'mae'
+        # Split dataset
+        train_data = dataset[:110000]
+        validation_data = dataset[110000:120000]
+        test_data = dataset[120000:]
+        train_data = list(train_data)
+        validation_data = list(validation_data)
         test_data = list(test_data)
 
     elif args.dataset == 'zinc':
@@ -284,6 +301,28 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruni
     return pruning_params
 
 
+def get_optimizer_and_scheduler(args, model):
+    """
+    Returns an pytorch optimizer and scheduler for each specific dataset
+    Args:
+        args: arguments of the program
+        model: the model we use for training and testing
+
+    Returns: optimizer, scheduler
+
+    """
+
+    if args.dataset == 'QM9':
+        optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.wd, amsgrad=False)
+        scheduler_ = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9961697)
+        scheduler = GradualWarmupScheduler(optimizer, multiplier=1.0, total_epoch=1, after_scheduler=scheduler_)
+    else:
+        optimizer = optim.Adam(model.parameters(), lr=args.lr)
+        scheduler = None
+
+    return optimizer, scheduler
+
+
 def main():
     start_time = time()
     # Training settings
@@ -341,7 +380,8 @@ def main():
     model = create_model(dataset=dataset, emb_dim=args.emb_dim,
                          dropout_ratio=args.drop_ratio, device=device, num_layers=args.num_layer,
                          max_seq_len=args.max_seq_len, num_vocab=args.num_vocab, model_type=args.gnn)
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+
+    optimizer, scheduler = get_optimizer_and_scheduler(args, model)
 
     valid_curve = []
     test_curve = []
@@ -352,6 +392,9 @@ def main():
         logging.info('Training...')
         training_iter_per_sec = train(model, dataset, device, train_loader, optimizer, cls_criterion=cls_criterion,
                                       tb_writer=tb_writer)
+
+        if scheduler is not None:
+            scheduler.step(epoch)
 
         logging.info('Evaluating...')
         train_perf = evaluate(model=model, device=device, loader=train_loader, evaluator=evaluator,

@@ -11,6 +11,7 @@ from ogb.graphproppred import PygGraphPropPredDataset
 from ogb.graphproppred.mol_encoder import AtomEncoder, BondEncoder
 from torch_geometric.utils import to_networkx, from_networkx
 
+from src.archs.MXMNet import MXMNet
 from src.archs.SimpleGCN import SimpleGCN
 from src.archs.pna import PNA
 from tst.ogb.encoder_utils import ASTNodeEncoder, get_vocab_mapping
@@ -112,6 +113,9 @@ def create_model(dataset: PygGraphPropPredDataset,
             model = SimpleGCN(num_node_features=dataset.num_features, num_classes=dataset.num_classes).to(device)
         elif model_type == 'pna':
             model = PNA().to(device)
+    elif dataset.name == 'QM9':
+        if model_type == 'mxmnet':
+            model = MXMNet().to(device)
     else:
         raise ValueError("Used an invalid dataset name")
     return model

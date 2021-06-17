@@ -30,7 +30,7 @@ class Evaluator(OriginalEvaluator):
         if name in ['mnist']:
             # Add here datasets that use ACCURACY for evaluation
             self.eval_metric = 'acc'
-        elif name in ['zinc']:
+        elif name in ['zinc', 'QM9']:
             # Add here datasets that use MAE for evaluation
             self.eval_metric = 'mae'
         else:

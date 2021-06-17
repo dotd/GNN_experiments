@@ -92,6 +92,7 @@ def get_args():
                         choices=["minhash_lsh", "random"])
     parser.add_argument('--random_pruning_prob', type=float, default=.5)
     parser.add_argument('--lr', type=float, default=0.001)
+    parser.add_argument('--wd', type=float, default=0, help='Weight decay value.')
     parser.add_argument('--num_minhash_funcs', type=int, default=1)
 
     # dataset specific params:

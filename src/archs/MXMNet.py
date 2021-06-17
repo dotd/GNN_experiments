@@ -12,15 +12,9 @@ from src.archs.mxnet_utils.utils import BesselBasisLayer, SphericalBasisLayer, M
 # Implementation from: https://github.com/zetayue/MXMNet
 
 
-class Config(object):
-    def __init__(self, dim, n_layer, cutoff):
-        self.dim = dim
-        self.n_layer = n_layer
-        self.cutoff = cutoff
-
-
 class MXMNet(nn.Module):
-    def __init__(self, dim: int, n_layer: int, cutoff: float, num_spherical=7, num_radial=6, envelope_exponent=5):
+    def __init__(self, dim: int = 128, n_layer: int = 6, cutoff: float = 10.0, num_spherical=7, num_radial=6,
+                 envelope_exponent=5):
         super(MXMNet, self).__init__()
 
         self.dim = dim

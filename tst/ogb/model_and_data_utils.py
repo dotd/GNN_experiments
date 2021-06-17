@@ -115,10 +115,7 @@ def create_model(dataset: PygGraphPropPredDataset,
             model = PNA().to(device)
     elif dataset.name == 'QM9':
         if model_type == 'mxmnet':
-            dim = 128
-            n_layer = 6
-            cutoff = 10.0
-            model = MXMNet(dim, n_layer, cutoff).to(device)
+            model = MXMNet().to(device)
     else:
         raise ValueError("Used an invalid dataset name")
     return model

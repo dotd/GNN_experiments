@@ -93,7 +93,7 @@ class MXMNet(nn.Module):
         pos = data.pos
         batch = data.batch
         # Initialize node embeddings
-        h = torch.index_select(self.embeddings, 0, z.long())  # TODO: check if it's supposed to be z or x
+        h = torch.index_select(self.embeddings, 0, z.long())
 
         # Get the edges and pairwise distances in the local layer
         edge_index_l, _ = remove_self_loops(edge_index)

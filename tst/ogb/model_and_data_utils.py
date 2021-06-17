@@ -114,7 +114,7 @@ def create_model(dataset: PygGraphPropPredDataset,
         elif model_type == 'pna':
             model = PNA().to(device)
     elif dataset.name == 'QM9':
-        if model_type == 'mxnet':
+        if model_type == 'mxmnet':
             dim = 128
             n_layer = 6
             cutoff = 10.0

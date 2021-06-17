@@ -105,8 +105,8 @@ def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str, re
     if dataset_name == 'ogbg-code2':
         input_dict = {"seq_ref": y_true, "seq_pred": y_pred}
     elif dataset_name in ['ogbg-molhiv', 'ogbg-ppa', 'ogbg-molpcba', 'mnist', 'zinc', 'QM9']:
-        y_true = torch.cat(y_true, dim=0).numpy()
-        y_pred = torch.cat(y_pred, dim=0).numpy()
+        y_true = torch.cat(y_true, dim=0).numpy().reshape(-1, 1)
+        y_pred = torch.cat(y_pred, dim=0).numpy().reshape(-1, 1)
         input_dict = {"y_true": y_true, "y_pred": y_pred}
 
     if return_avg_time:

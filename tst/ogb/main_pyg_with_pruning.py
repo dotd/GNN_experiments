@@ -13,8 +13,7 @@ import torch_geometric.transforms as T
 from ogb.graphproppred import PygGraphPropPredDataset
 from torch.utils.tensorboard import SummaryWriter
 from torch_geometric.data import DataLoader
-from torch_geometric.datasets import MNISTSuperpixels, ZINC, MoleculeNet, QM9
-from torch_geometric.utils import degree
+from torch_geometric.datasets import MNISTSuperpixels, ZINC, QM9
 from torchvision import transforms
 from warmup_scheduler import GradualWarmupScheduler
 
@@ -152,8 +151,9 @@ def register_logging_files(args):
             f'Pruning method: {args.pruning_method}',
             f'Architecture: {args.gnn}',
         ]
-        pruning_param = args.num_minhash_funcs if args.pruning_method == 'minhas_lsh' else args.random_pruning_prob
-        tags.append(f'pruning_param: {pruning_param}')
+        pruning_param_name = 'num_minhash_funcs' if args.pruning_method == 'minhash_lsh' else 'random_pruning_prob'
+        pruning_param = args.num_minhash_funcs if args.pruning_method == 'minhash_lsh' else args.random_pruning_prob
+        tags.append(f'{pruning_param_name}: {pruning_param}')
         clearml_logger = get_clearml_logger(project_name="GNN_pruning",
                                             task_name=get_time_str(),
                                             tags=tags)
@@ -182,6 +182,10 @@ def load_dataset(args):
         dataset = QM9(root='dataset', transform=ExtractTargetTransform(args.target)).shuffle()
         dataset.name = 'QM9'
         dataset.eval_metric = 'mae'
+        # data = dataset.data
+        # data.x, data.z = data.z, data.x
+        # data.x = data.z.reshape(-1, 1)
+        # dataset.data = data
         # Split dataset
         train_data = dataset[:110000]
         validation_data = dataset[110000:120000]
@@ -248,9 +252,9 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruni
         return None
     if args.pruning_method == 'minhash_lsh':
         if pruning_params is None:
-            dim_nodes = original_dataset[0].x.shape[1] if len(original_dataset[0].x.shape) == 2 else 0
+            dim_nodes = original_dataset[0].x.shape[1] if len(original_dataset[0].x.shape) == 2 else 1
             lsh_num_funcs = args.num_minhash_funcs
-            sparsity = 20
+            sparsity = 7
             std_of_threshold = 1
             dim_edges = 0
             if original_dataset[0].edge_attr is not None:

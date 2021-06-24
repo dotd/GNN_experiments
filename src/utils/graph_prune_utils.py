@@ -12,7 +12,7 @@ def get_adjacent_edges_of_nodes(num_nodes, edge_index, edge_attr):
     for i in range(len(edge_index_from)):
         # if (i / len(edge_index_from)) > 0.7:
         #     break
-        if i % 1e+6 == 0:
+        if i % 1e+6 == 0 and i != 0:
             print(f"Processed {i} / {len(edge_index_from)} edges ({(i / len(edge_index_from)) * 100} %)")
 
         from_ = edge_index_from[i]
@@ -103,7 +103,7 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
             adjacent_meta = [((n, node.item()), node_attr[node.item()]) for node in adjacent_nodes_local]
 
         if lsh_nodes is not None and lsh_edges is not None:
-            node_rep = lsh_nodes_signatures[n][np.newaxis,...].repeat(repeats=len(adjacent_nodes_local), axis=0)
+            node_rep = lsh_nodes_signatures[n][np.newaxis, ...].repeat(repeats=len(adjacent_nodes_local), axis=0)
             rep_tensor = np.hstack([node_rep, signatures_edge_attrs])
         elif lsh_nodes is None:
             rep_tensor = signatures_edge_attrs

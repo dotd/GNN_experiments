@@ -12,7 +12,7 @@ class LSH:
                  **kwargs):
         self.din = din
         self.num_functions = num_functions
-        self.sparsity = sparsity
+        self.sparsity = min(sparsity, self.din)
         self.std_of_threshold = std_of_threshold
         self.random = random
 

@@ -93,6 +93,7 @@ def get_args():
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--wd', type=float, default=0, help='Weight decay value.')
     parser.add_argument('--num_minhash_funcs', type=int, default=1)
+    parser.add_argument('--sparsity', type=int, default=25)
 
     # dataset specific params:
     parser.add_argument('--max_seq_len', type=int, default=5,
@@ -254,7 +255,7 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruni
         if pruning_params is None:
             dim_nodes = original_dataset[0].x.shape[1] if len(original_dataset[0].x.shape) == 2 else 1
             lsh_num_funcs = args.num_minhash_funcs
-            sparsity = 7
+            sparsity = args.sparsity
             std_of_threshold = 1
             dim_edges = 0
             if original_dataset[0].edge_attr is not None:

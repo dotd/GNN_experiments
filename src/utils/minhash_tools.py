@@ -119,6 +119,7 @@ class MinHashRep:
 
     def apply(self, s, metas=None):
         result = []
+        all_minhashes = []
         if metas is None:
             metas = s
         for idx, perm in enumerate(self.perms):
@@ -135,7 +136,11 @@ class MinHashRep:
                 if new_val < minimal_value.value:
                     minimal_value = MH(new_val, val[1], meta)
             result.append(minimal_value)
+
+
         # the returned vector represents the minimum hash of the set s
+        # result = list(set(s) - set(result))
+
         return result
 
     def __str__(self):

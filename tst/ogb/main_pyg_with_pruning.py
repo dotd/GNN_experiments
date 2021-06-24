@@ -248,7 +248,7 @@ def prune_datasets(train_data, validation_data, test_data, args):
     return train_data, validation_data, test_data
 
 
-def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruning_params=None):
+def prune_dataset(original_dataset, args, random=np.random.RandomState(10), pruning_params=None):
     if original_dataset is None or len(original_dataset) == 0:
         return None
     if args.pruning_method == 'minhash_lsh':
@@ -291,14 +291,16 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruni
                                           method="minhash_lsh",
                                           minhash=pruning_params['minhash'],
                                           lsh_nodes=pruning_params['nodes']['lsh'],
-                                          lsh_edges=pruning_params['edges']['lsh'], )
+                                          lsh_edges=pruning_params['edges']['lsh'],
+                                          complement=args.complement)
         print(f"prunning_ratio = {prunning_ratio}")
 
     elif args.pruning_method == 'random':
         tg_dataset_prune(tg_dataset=original_dataset,
                          method="random",
                          p=args.random_pruning_prob,
-                         random=random, )
+                         random=random,
+                         complement=args.complement)
 
     else:
         raise NotImplementedError(f"Pruning method {args.pruning_method} not implemented")

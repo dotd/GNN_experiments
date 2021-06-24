@@ -200,6 +200,7 @@ def get_training_args():
     parser.add_argument('--random_pruning_prob', type=float, default=.5)
     parser.add_argument('--num_minhash_funcs', type=int, default=1)
     parser.add_argument('--sparsity', type=int, default=25)
+    parser.add_argument("--complement", action='store_true', help="")
 
     # Logging/debugging/checkpoint related (helps a lot with experimentation)
     parser.add_argument("--enable_tensorboard", action='store_true', help="enable tensorboard logging (no by default)")
@@ -243,6 +244,11 @@ def get_training_args():
         pruning_param_name = 'num_minhash_funcs' if args.pruning_method == 'minhash_lsh' else 'random_pruning_prob'
         pruning_param = args.num_minhash_funcs if args.pruning_method == 'minhash_lsh' else args.random_pruning_prob
         tags.append(f'{pruning_param_name}: {pruning_param}')
+
+        if pruning_param_name == 'num_minhash_funcs':
+            tags.append(f'Sparsity: {args.sparsity}')
+            tags.append(f'Complement: {args.complement}')
+
         clearml_logger = get_clearml_logger(project_name="GNN_pruning",
                                             task_name=get_time_str(),
                                             tags=tags)

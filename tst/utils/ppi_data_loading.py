@@ -158,9 +158,9 @@ def load_graph_data(args, device):
         val_node_features, val_node_labels, val_edge_index = unstruct_pyg_dataset(validation_dataset)
         test_node_features, test_node_labels, test_edge_index = unstruct_pyg_dataset(test_dataset)
 
-        edge_count = count_edges(train_edge_index)
+        edge_count = count_edges(train_edge_index + val_edge_index + test_edge_index)
         print(
-            f"Old number of edges: {old_edge_count}. New one: {edge_count}. Change: {(old_edge_count - edge_count) / old_edge_count * 100}\%")
+            f"Old number of edges: {old_edge_count}. New one: {edge_count}. Change: {edge_count / old_edge_count * 100}\%")
 
         data_loader_train = GraphDataLoader(
             train_node_features,

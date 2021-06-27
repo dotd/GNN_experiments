@@ -34,7 +34,7 @@ def save_best_stats(**kwargs):
 def get_main_loop(args, gat, sigmoid_cross_entropy_loss, optimizer, patience_period, time_start, tb_writer):
     device = next(gat.parameters()).device  # fetch the device info from the model instead of passing it as a param
 
-    @save_best_stats(best_val_perf=0, best_val_loss=0, patience_cnt=0)
+    @save_best_stats(best_val_perf=0, best_val_loss=0, patience_cnt=0, best_test_perf=0)
     def main_loop(phase, data_loader, epoch=0):
 
         # Certain modules behave differently depending on whether we're training the model or not.
@@ -105,6 +105,7 @@ def get_main_loop(args, gat, sigmoid_cross_entropy_loss, optimizer, patience_per
                     raise Exception('Stopping the training, the universe has no more patience for this training.')
 
             else:
+                main_loop.best_test_perf = max(main_loop.best_test_perf, micro_f1)
                 return micro_f1  # in the case of test phase we just report back the test micro_f1
 
     return main_loop  # return the decorated function
@@ -117,8 +118,6 @@ def train_gat_ppi(args, tb_writer):
     2. Doing multi-class classification (BCEWithLogitsLoss) and reporting micro-F1 instead of accuracy
     3. Model architecture and hyperparams are a bit different (as reported in the GAT paper)
     """
-    global BEST_VAL_PERF, BEST_VAL_LOSS
-
     # Checking whether you have a strong GPU. Since PPI training requires almost 8 GBs of VRAM
     # I've added the option to force the use of CPU even though you have a GPU on your system (but it's too weak).
     device = torch.device("cuda" if torch.cuda.is_available() and not args.force_cpu else "cpu")
@@ -152,8 +151,6 @@ def train_gat_ppi(args, tb_writer):
         time.time(),
         tb_writer, )
 
-    # BEST_VAL_PERF, BEST_VAL_LOSS, PATIENCE_CNT = [0, 0, 0]  # reset vars used for early stopping
-
     # Step 4: Start the training procedure
     for epoch in range(args.num_of_epochs):
         # Training loop
@@ -167,15 +164,15 @@ def train_gat_ppi(args, tb_writer):
                 print(str(e))
                 break  # break out from the training loop
 
-    # Step 5: Test the model
-    if args.should_test:
-        micro_f1 = main_loop(phase=LoopPhase.TEST, data_loader=data_loader_test)
-        args.test_perf = micro_f1
+        # Step 5: Test the model
+        if args.should_test:
+            micro_f1 = main_loop(phase=LoopPhase.TEST, data_loader=data_loader_test)
+            args.test_perf = micro_f1
 
-        print('*' * 50)
-        print(f'Test micro-F1 = {micro_f1}')
-    else:
-        args.test_perf = -1
+            print('*' * 50)
+            print(f'Test micro-F1 = {main_loop.best_test_perf}')
+        else:
+            args.test_perf = -1
 
 
 def get_training_args():

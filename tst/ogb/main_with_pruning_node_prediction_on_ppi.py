@@ -1,4 +1,5 @@
 import argparse
+import enum
 import time
 
 import torch
@@ -7,21 +8,34 @@ from sklearn.metrics import f1_score
 from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 
-from src.archs.ppi_gat.ppi_gat import GAT
+from src.archs.ppi_gat.ppi_gat import GAT, LayerType
 from src.utils.date_utils import get_time_str
 from src.utils.logging_utils import get_clearml_logger
-from tst.utils.constants import PPI_NUM_INPUT_FEATURES, LayerType, PPI_NUM_CLASSES, DatasetType, LoopPhase
 from tst.utils.ppi_data_loading import load_graph_data
 
 
 # Implementation from https://github.com/gordicaleksa/pytorch-GAT
 
 
+class LoopPhase(enum.Enum):
+    TRAIN = 0,
+    VAL = 1,
+    TEST = 2
+
+
+def save_best_stats(**kwargs):
+    def decorate(func):
+        for k in kwargs:
+            setattr(func, k, kwargs[k])
+        return func
+    return decorate
+
+
 def get_main_loop(args, gat, sigmoid_cross_entropy_loss, optimizer, patience_period, time_start, tb_writer):
     device = next(gat.parameters()).device  # fetch the device info from the model instead of passing it as a param
 
+    @save_best_stats(best_val_perf=0, best_val_loss=0, patience_cnt=0)
     def main_loop(phase, data_loader, epoch=0):
-        global BEST_VAL_PERF, BEST_VAL_LOSS, PATIENCE_CNT
 
         # Certain modules behave differently depending on whether we're training the model or not.
         # e.g. nn.Dropout - we only want to drop model weights during the training.
@@ -80,14 +94,14 @@ def get_main_loop(args, gat, sigmoid_cross_entropy_loss, optimizer, patience_per
 
                 # The "patience" logic - should we break out from the training loop? If either validation micro-F1
                 # keeps going up or the val loss keeps going down we won't stop
-                if micro_f1 > BEST_VAL_PERF or loss.item() < BEST_VAL_LOSS:
-                    BEST_VAL_PERF = max(micro_f1, BEST_VAL_PERF)  # keep track of the best validation micro_f1 so far
-                    BEST_VAL_LOSS = min(loss.item(), BEST_VAL_LOSS)  # and the minimal loss
-                    PATIENCE_CNT = 0  # reset the counter every time we encounter new best micro_f1
+                if micro_f1 > main_loop.best_val_perf or loss.item() < main_loop.best_val_loss:
+                    main_loop.best_val_perf = max(micro_f1, main_loop.best_val_perf)  # keep track of the best validation micro_f1 so far
+                    main_loop.best_val_loss = min(loss.item(), main_loop.best_val_loss)  # and the minimal loss
+                    main_loop.patience_cnt = 0  # reset the counter every time we encounter new best micro_f1
                 else:
-                    PATIENCE_CNT += 1  # otherwise keep counting
+                    main_loop.patience_cnt += 1  # otherwise keep counting
 
-                if PATIENCE_CNT >= patience_period:
+                if main_loop.patience_cnt >= patience_period:
                     raise Exception('Stopping the training, the universe has no more patience for this training.')
 
             else:
@@ -138,7 +152,7 @@ def train_gat_ppi(args, tb_writer):
         time.time(),
         tb_writer, )
 
-    BEST_VAL_PERF, BEST_VAL_LOSS, PATIENCE_CNT = [0, 0, 0]  # reset vars used for early stopping
+    # BEST_VAL_PERF, BEST_VAL_LOSS, PATIENCE_CNT = [0, 0, 0]  # reset vars used for early stopping
 
     # Step 4: Start the training procedure
     for epoch in range(args.num_of_epochs):
@@ -153,9 +167,7 @@ def train_gat_ppi(args, tb_writer):
                 print(str(e))
                 break  # break out from the training loop
 
-    # Step 5: Potentially test your model
-    # Don't overfit to the test dataset - only when you've fine-tuned your model on the validation dataset should you
-    # report your final loss and micro-F1 on the test dataset. Friends don't let friends overfit to the test data. <3
+    # Step 5: Test the model
     if args.should_test:
         micro_f1 = main_loop(phase=LoopPhase.TEST, data_loader=data_loader_test)
         args.test_perf = micro_f1
@@ -167,6 +179,8 @@ def train_gat_ppi(args, tb_writer):
 
 
 def get_training_args():
+    ppi_num_input_features = 50
+    ppi_num_classes = 121
     parser = argparse.ArgumentParser()
 
     # Training related
@@ -183,14 +197,14 @@ def get_training_args():
                         help='GNN gcn, or gcn-virtual (default: gcn)',
                         choices=['gcn', 'gat', 'monet', 'pna', 'sage', 'mlp', 'mxmnet'])
     parser.add_argument("--num_of_layers", type=list, help='', default=[4, 4, 6])
-    parser.add_argument("--num_features_per_layer", type=list, help='', default=[PPI_NUM_INPUT_FEATURES, 256, 256, PPI_NUM_CLASSES])
+    parser.add_argument("--num_features_per_layer", type=list, help='', default=[ppi_num_input_features, 256, 256, ppi_num_classes])
     parser.add_argument("--add_skip_connection", type=bool, help='', default=True)
     parser.add_argument("--bias", type=bool, help='', default=True)
     parser.add_argument("--dropout", type=float, help='', default=0.0)
     parser.add_argument("--layer_type", help='', default=LayerType.IMP3)
 
     # Dataset related (note: we need the dataset name for metadata and related stuff, and not for picking the dataset)
-    parser.add_argument("--dataset_name", choices=[el.name for el in DatasetType], help='dataset to use for training', default=DatasetType.PPI.name)
+    parser.add_argument("--dataset_name", choices=['PPI'], help='dataset to use for training', default='PPI')
     parser.add_argument("--batch_size", type=int, help='number of graphs in a batch', default=2)
     parser.add_argument("--ppi_load_test_only", type=bool, default=False, help='')
 
@@ -218,7 +232,7 @@ def get_training_args():
         # GNNs, contrary to CNNs, are often shallow (it ultimately depends on the graph properties)
         "num_of_layers": 3,  # PPI has got 42% of nodes with all 0 features - that's why 3 layers are useful
         "num_heads_per_layer": [4, 4, 6],  # other values may give even better results from the reported ones
-        "num_features_per_layer": [PPI_NUM_INPUT_FEATURES, 256, 256, PPI_NUM_CLASSES],  # 64 would also give ~0.975 uF1!
+        "num_features_per_layer": [ppi_num_input_features, 256, 256, ppi_num_classes],  # 64 would also give ~0.975 uF1!
         "add_skip_connection": True,  # skip connection is very important! (keep it otherwise micro-F1 is almost 0)
         "bias": True,  # bias doesn't matter that much
         "dropout": 0.0,  # dropout hurts the performance (best to keep it at 0)

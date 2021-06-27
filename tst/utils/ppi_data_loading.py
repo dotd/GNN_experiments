@@ -13,7 +13,10 @@ from torch.utils.data import DataLoader, Dataset
 from torch_geometric.data import Data
 
 from tst.ogb.main_pyg_with_pruning import prune_dataset
-from tst.utils.constants import PPI_PATH, PPI_URL
+
+
+DATA_DIR_PATH = os.path.join(os.path.dirname(__file__), os.pardir, 'data')
+PPI_PATH = os.path.join(DATA_DIR_PATH, 'ppi')
 
 
 def count_edges(edge_index_list):
@@ -53,7 +56,7 @@ def unstruct_pyg_dataset(dataset):
     return node_features, node_labels, edge_index
 
 
-def load_graph_data(args, device):
+def load_graph_data(args, device, PPI_URL='https://data.dgl.ai/dataset/ppi.zip'):
     # Instead of checking PPI in, I'd rather download it on-the-fly the first time it's needed
     if not os.path.exists(PPI_PATH):  # download the first time this is ran
         os.makedirs(PPI_PATH)

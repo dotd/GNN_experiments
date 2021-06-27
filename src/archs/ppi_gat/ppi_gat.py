@@ -1,10 +1,16 @@
+import enum
+
 import torch
 import torch.nn as nn
 
-from tst.utils.constants import LayerType
-
 
 # Implementation from https://github.com/gordicaleksa/pytorch-GAT
+
+
+class LayerType(enum.Enum):
+    IMP1 = 0,
+    IMP2 = 1,
+    IMP3 = 2
 
 
 class GAT(torch.nn.Module):

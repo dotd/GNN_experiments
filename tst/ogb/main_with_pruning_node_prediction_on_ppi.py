@@ -167,12 +167,9 @@ def train_gat_ppi(args, tb_writer):
         # Step 5: Test the model
         if args.should_test:
             micro_f1 = main_loop(phase=LoopPhase.TEST, data_loader=data_loader_test)
-            args.test_perf = micro_f1
 
             print('*' * 50)
             print(f'Test micro-F1 = {main_loop.best_test_perf}')
-        else:
-            args.test_perf = -1
 
 
 def get_training_args():

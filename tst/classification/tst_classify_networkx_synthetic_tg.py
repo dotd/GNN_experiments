@@ -71,19 +71,27 @@ def get_args():
     parser.add_argument('--max_nodes', type=int, default=10, help='')
     parser.add_argument('--dim_nodes', type=int, default=4, help='')
     parser.add_argument('--dim_edges', type=int, default=4, help='')
-    parser.add_argument('--noise_nodes', type=float, default=1, help='')  # TODO figure out the type
-    parser.add_argument('--connectivity_rate', type=float, default=0.2, help='')
-    parser.add_argument('--centers_nodes_std', type=float, default=0.2, help='')
-    parser.add_argument('--centers_edges_std', type=float, default=0.2, help='')
+    parser.add_argument('--connectivity_rate', type=float, default=0.2,
+                        help='how many edges are connected to each node, normalized')
+    parser.add_argument('--centers_nodes_std', type=float, default=0.2, help='the std of the nodes representation')
+    parser.add_argument('--centers_edges_std', type=float, default=0.2, help='the std of the edges representation')
 
-    parser.add_argument('--node_additive_noise_std', type=float, default=0.2, help='')
-    parser.add_argument('--edge_additive_noise_std', type=float, default=0.2, help='')
+    parser.add_argument('--node_additive_noise_std', type=float, default=0.2,
+                        help='the std of the nodes noise, per sample')
+    parser.add_argument('--edge_additive_noise_std', type=float, default=0.2,
+                        help='the std of the edges noise, per sample')
 
-    parser.add_argument('--connectivity_rate_noise', type=float, default=0.05, help='')
-    parser.add_argument('--symmetric_flag', default=False, action='store_true', help='')
-    parser.add_argument('--nodes_order_scramble_flag', default=False, action='store_true', help='')
-    parser.add_argument('--noise_remove_node', type=float, default=0.1, help='')
-    parser.add_argument('--noise_add_node', type=float, default=0.1, help='')
+    parser.add_argument('--connectivity_rate_noise', type=float, default=0.05,
+                        help='the edges rate for the parallel graph')
+    parser.add_argument('--symmetric_flag', default=False, action='store_true',
+                        help='whether the graph is bidirectional')
+    parser.add_argument('--nodes_order_scramble_flag', default=False, action='store_true',
+                        help='whether to rename nodes')
+    parser.add_argument('--noise_remove_node', type=float, default=0.1,
+                        help='the rate of removing nodes from the generated graph')
+    parser.add_argument('--noise_add_node', type=float, default=0.1,
+                        help='the rate of adding noisy nodes to the generated graph, each new node will be connected'
+                             'with the original connectivity rate')  # TODO
 
     return parser.parse_args()
 
@@ -119,7 +127,6 @@ def tst_classify_networkx_synthetic_tg(
                                                 dim_edges=dim_edges,
                                                 centers_nodes_std=centers_nodes_std,
                                                 centers_edges_std=centers_edges_std,
-                                                # noise_nodes=noise_nodes,
                                                 connectivity_rate=connectivity_rate,
                                                 connectivity_rate_noise=connectivity_rate_noise,
                                                 noise_remove_node=noise_remove_node,

@@ -268,7 +268,7 @@ def generate_graphs_dataset(num_samples,
 
         # Scramble
         if nodes_order_scramble_flag:
-            scramble_graph(sample, random)
+            scramble_graph(sample, random) # TODO: modify edges attrs
         # print(f"scramble_graph=\n{center}")
 
         samples.append(sample)

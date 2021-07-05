@@ -119,12 +119,15 @@ class MinHashRep:
 
     def apply(self, s, metas=None):
         result = []
-        all_minhashes = []
+        used_indices = [0] * len(s)
         if metas is None:
             metas = s
         for idx, perm in enumerate(self.perms):
             minimal_value = MH()
-            for val_orig, meta in zip(s, metas):
+            chosen_item_idx = 0
+            for item_idx, (val_orig, meta) in enumerate(zip(s, metas)):
+                # if used_indices[item_idx]:
+                #     continue
                 # ensure s is composed of integers
                 if not isinstance(val_orig, int):
                     val = (hash(val_orig) % self.prime, val_orig)
@@ -134,12 +137,14 @@ class MinHashRep:
                 a, b = perm
                 new_val = (a * val[0] + b) % self.prime
                 if new_val < minimal_value.value:
+                    chosen_item_idx = item_idx
                     minimal_value = MH(new_val, val[1], meta)
+
+            if used_indices[chosen_item_idx]:
+                continue
+
+            used_indices[chosen_item_idx] = 1
             result.append(minimal_value)
-
-
-        # the returned vector represents the minimum hash of the set s
-        # result = list(set(s) - set(result))
 
         return result
 

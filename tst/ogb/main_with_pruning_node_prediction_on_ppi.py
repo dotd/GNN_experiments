@@ -1,5 +1,6 @@
 import argparse
 import enum
+import pathlib
 import time
 
 import torch
@@ -47,6 +48,7 @@ def get_main_loop(args, gat, sigmoid_cross_entropy_loss, optimizer, patience_per
         # Iterate over batches of graph data (2 graphs per batch was used in the original paper for the PPI dataset)
         # We merge them into a single graph with 2 connected components, that's the main idea. After that
         # the implementation #3 is agnostic to the fact that those are multiple and not a single graph!
+        current_start_time = time.time()
         for batch_idx, (node_features, gt_node_labels, edge_index) in enumerate(data_loader):
             edge_index = edge_index.to(device)
             node_features = node_features.to(device)
@@ -79,7 +81,7 @@ def get_main_loop(args, gat, sigmoid_cross_entropy_loss, optimizer, patience_per
                 # Log to console
                 if args.console_log_freq is not None and batch_idx % args.console_log_freq == 0:
                     print(f'GAT training: time elapsed= {(time.time() - time_start):.2f} [s] |'
-                          f' epoch={epoch + 1} | batch={batch_idx + 1} | train micro-F1={micro_f1}.')
+                          f' epoch={epoch + 1} | batch={batch_idx + 1} | train micro-F1={micro_f1} | {(time.time() - current_start_time) / (batch_idx + 1)} seconds/iteration')
 
             elif phase == LoopPhase.VAL:
                 # Log metrics
@@ -90,7 +92,7 @@ def get_main_loop(args, gat, sigmoid_cross_entropy_loss, optimizer, patience_per
                 # Log to console
                 if args.console_log_freq is not None and batch_idx % args.console_log_freq == 0:
                     print(f'GAT validation: time elapsed= {(time.time() - time_start):.2f} [s] |'
-                          f' epoch={epoch + 1} | batch={batch_idx + 1} | val micro-F1={micro_f1}')
+                          f' epoch={epoch + 1} | batch={batch_idx + 1} | val micro-F1={micro_f1} | {(time.time() - current_start_time) / (batch_idx + 1)} seconds/iteration')
 
                 # The "patience" logic - should we break out from the training loop? If either validation micro-F1
                 # keeps going up or the val loss keeps going down we won't stop
@@ -111,6 +113,9 @@ def get_main_loop(args, gat, sigmoid_cross_entropy_loss, optimizer, patience_per
     return main_loop  # return the decorated function
 
 
+pruning_ratio_path = 'last_pruning_ratio.txt'
+
+
 def train_gat_ppi(args, tb_writer):
     """
     Very similar to Cora's training script. The main differences are:
@@ -118,12 +123,19 @@ def train_gat_ppi(args, tb_writer):
     2. Doing multi-class classification (BCEWithLogitsLoss) and reporting micro-F1 instead of accuracy
     3. Model architecture and hyperparams are a bit different (as reported in the GAT paper)
     """
+    if pathlib.Path(pruning_ratio_path).exists():
+        with open(pruning_ratio_path, 'r') as fp:
+            args.random_pruning_prob = float(fp.read())
+
     # Checking whether you have a strong GPU. Since PPI training requires almost 8 GBs of VRAM
     # I've added the option to force the use of CPU even though you have a GPU on your system (but it's too weak).
     device = torch.device("cuda" if torch.cuda.is_available() and not args.force_cpu else "cpu")
 
     # Step 1: prepare the data loaders
-    data_loader_train, data_loader_val, data_loader_test = load_graph_data(args, device)
+    data_loader_train, data_loader_val, data_loader_test, prune_ratio = load_graph_data(args, device)
+
+    with open(pruning_ratio_path, 'w') as fp:
+        fp.write(str(prune_ratio))
 
     # Step 2: prepare the model
     gat = GAT(
@@ -170,6 +182,8 @@ def train_gat_ppi(args, tb_writer):
 
             print('*' * 50)
             print(f'Test micro-F1 = {main_loop.best_test_perf}')
+
+    print(f"Pruning ratio: {prune_ratio}")
 
 
 def get_training_args():
@@ -257,7 +271,7 @@ def get_training_args():
             tags.append(f'Sparsity: {args.sparsity}')
             tags.append(f'Complement: {args.complement}')
 
-        clearml_logger = get_clearml_logger(project_name="GNN_pruning",
+        clearml_logger = get_clearml_logger(project_name="GNN_pruning_comparisons",
                                             task_name=get_time_str(),
                                             tags=tags)
 

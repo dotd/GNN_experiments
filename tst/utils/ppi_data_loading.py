@@ -14,7 +14,6 @@ from torch_geometric.data import Data
 
 from tst.ogb.main_pyg_with_pruning import prune_dataset
 
-
 DATA_DIR_PATH = os.path.join(os.path.dirname(__file__), os.pardir, 'data')
 PPI_PATH = os.path.join(DATA_DIR_PATH, 'ppi')
 
@@ -162,8 +161,8 @@ def load_graph_data(args, device, PPI_URL='https://data.dgl.ai/dataset/ppi.zip')
         test_node_features, test_node_labels, test_edge_index = unstruct_pyg_dataset(test_dataset)
 
         edge_count = count_edges(train_edge_index + val_edge_index + test_edge_index)
-        print(
-            f"Old number of edges: {old_edge_count}. New one: {edge_count}. Change: {edge_count / old_edge_count * 100}\%")
+        prune_ratio = edge_count / old_edge_count
+        print(f"Old number of edges: {old_edge_count}. New one: {edge_count}. Change: {prune_ratio * 100}\%")
 
         data_loader_train = GraphDataLoader(
             train_node_features,
@@ -189,7 +188,7 @@ def load_graph_data(args, device, PPI_URL='https://data.dgl.ai/dataset/ppi.zip')
             shuffle=False
         )
 
-        return data_loader_train, data_loader_val, data_loader_test
+        return data_loader_train, data_loader_val, data_loader_test, prune_ratio
 
 
 class GraphDataLoader(DataLoader):

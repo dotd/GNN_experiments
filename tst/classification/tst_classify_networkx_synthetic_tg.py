@@ -3,6 +3,11 @@ import argparse
 import numpy as np
 import time
 
+from torch.utils.tensorboard import SummaryWriter
+
+from src.utils.date_utils import get_time_str
+from src.utils.logging_utils import get_clearml_logger
+
 start_time = time.time()
 
 import src.synthetic.random_graph_dataset as rgd
@@ -114,6 +119,7 @@ def tst_classify_networkx_synthetic_tg(
         random=np.random.RandomState(0),
         noise_remove_node=0.1,
         noise_add_node=0.1,
+        tb_writer=None,
         **kwargs,
 ):
     print(f"{time.time() - start_time:.4f} tst_classify_synthetic")
@@ -152,12 +158,34 @@ def tst_classify_networkx_synthetic_tg(
         train(model, train_loader)
         train_acc = func_test(model, train_loader)
         test_acc = func_test(model, test_loader)
+
+        if tb_writer is not None:
+            tb_writer.add_scalars('Accuracy',
+                                  {'Train': train_acc,
+                                   'Test': test_acc, },
+                                  epoch)
+
         print(
             f'{time.time() - start_time:.4f} Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
 
 
 if __name__ == "__main__":
     args = get_args()
+
+    tb_writer = None
+    if args.enable_clearml_logger:
+        tb_writer = SummaryWriter(log_dir=None)
+        tags = [
+            f'Pruning method: {args.pruning_method}',
+            f'Architecture: {args.gnn}',
+        ]
+        pruning_param_name = 'num_minhash_funcs' if args.pruning_method == 'minhash_lsh' else 'random_pruning_prob'
+        pruning_param = args.num_minhash_funcs if args.pruning_method == 'minhash_lsh' else args.random_pruning_prob
+        tags.append(f'{pruning_param_name}: {pruning_param}')
+        clearml_logger = get_clearml_logger(project_name="GNN_synthetic_pruning",
+                                            task_name=get_time_str(),
+                                            tags=tags)
+
     print(f"{time.time() - start_time:.4f} start time")
-    tst_classify_networkx_synthetic_tg(**vars(args))
+    tst_classify_networkx_synthetic_tg(**vars(args), tb_writer=tb_writer)
     print(f"{time.time() - start_time:.4f} end time")

@@ -105,7 +105,6 @@ def tst_classify_networkx_synthetic_tg(
         dim_edges=4,
         centers_nodes_std=0.1,
         centers_edges_std=0.1,
-        noise_nodes=1,
         connectivity_rate=0.2,
         connectivity_rate_noise=0.05,
         symmetric_flag=True,
@@ -132,7 +131,7 @@ def tst_classify_networkx_synthetic_tg(
                                                 noise_remove_node=noise_remove_node,
                                                 node_additive_noise_std=node_additive_noise_std,
                                                 edge_additive_noise_std=edge_additive_noise_std,
-                                                # noise_add_node=noise_add_node,
+                                                noise_add_node=noise_add_node,
                                                 nodes_order_scramble_flag=nodes_order_scramble_flag,
                                                 symmetric_flag=symmetric_flag,
                                                 random=random)

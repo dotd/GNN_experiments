@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import pickle
 import torch
@@ -121,24 +123,29 @@ def train(model, train_loader, lr=0.01):
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = torch.nn.CrossEntropyLoss()
-
-    for data in train_loader:  # Iterate in batches over the training dataset.
+    start_time = time.time()
+    for batch_i, data in enumerate(train_loader):  # Iterate in batches over the training dataset.
         out = model(data.x, data.edge_index, data.batch)  # Perform a single forward pass.
         loss = criterion(out, data.y)  # Compute the loss.
         loss.backward()  # Derive gradients.
         optimizer.step()  # Update parameters based on gradients.
         optimizer.zero_grad()  # Clear gradients.
+        print(f"Batch {batch_i + 1} / {len(train_loader)} | {(time.time() - start_time) / (batch_i + 1)} sec / iteration")
+
+    return (time.time() - start_time) / len(train_loader)
 
 
 def func_test(model, loader):
     model.eval()
 
     correct = 0
-    for data in loader:  # Iterate in batches over the training/test dataset.
+    start_time = time.time()
+    for batch_i, data in enumerate(loader):  # Iterate in batches over the training/test dataset.
         out = model(data.x, data.edge_index, data.batch)
         pred = out.argmax(dim=1)  # Use the class with highest probability.
         correct += int((pred == data.y).sum())  # Check against ground-truth labels.
-    return correct / len(loader.dataset)  # Derive ratio of correct predictions.
+        print(f"Batch {batch_i + 1} / {len(loader)} | {(time.time() - start_time) / (batch_i + 1)} sec / iteration")
+    return correct / len(loader.dataset), (time.time() - start_time) / len(loader)
 
 
 def sparsify_using_lsh():

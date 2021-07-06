@@ -275,13 +275,12 @@ def generate_graphs_dataset(num_samples,
                              centers_edges_std=centers_edges_std,
                              random=random)
     samples = list()
-    labels = list()
+    labels = np.random.randint(num_classes, size=num_samples)
 
     # Create samples and labels
     for i in range(num_samples):
         # get a class
-        c = random.randint(num_classes)
-        labels.append(c)
+        c = labels[i]
 
         # Get the sample
         sample = copy.deepcopy(centers[c])

@@ -296,6 +296,7 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(10), prun
         print(f"prunning_ratio = {prunning_ratio}")
 
     elif args.pruning_method == 'random':
+        prunning_ratio = args.random_pruning_prob
         tg_dataset_prune(tg_dataset=original_dataset,
                          method="random",
                          p=args.random_pruning_prob,
@@ -305,7 +306,7 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(10), prun
     else:
         raise NotImplementedError(f"Pruning method {args.pruning_method} not implemented")
 
-    return pruning_params
+    return pruning_params, prunning_ratio
 
 
 def get_optimizer_and_scheduler(args, model):

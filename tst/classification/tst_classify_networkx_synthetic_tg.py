@@ -73,9 +73,9 @@ def get_args():
 
     # dataset specific params:
     parser.add_argument('--num_samples', type=int, default=1000, help='')
-    parser.add_argument('--num_classes', type=int, default=2, help='')
-    parser.add_argument('--min_nodes', type=int, default=10, help='')
-    parser.add_argument('--max_nodes', type=int, default=10, help='')
+    parser.add_argument('--num_classes', type=int, default=10, help='')
+    parser.add_argument('--min_nodes', type=int, default=50, help='')
+    parser.add_argument('--max_nodes', type=int, default=60, help='')
     parser.add_argument('--dim_nodes', type=int, default=4, help='')
     parser.add_argument('--dim_edges', type=int, default=4, help='')
     parser.add_argument('--connectivity_rate', type=float, default=0.2,
@@ -98,7 +98,7 @@ def get_args():
                         help='the rate of removing nodes from the generated graph')
     parser.add_argument('--noise_add_node', type=float, default=0.1,
                         help='the rate of adding noisy nodes to the generated graph, each new node will be connected'
-                             'with the original connectivity rate')  # TODO
+                             'with the original connectivity rate')  # TODO: 1) how to generate edge and node features
 
     return parser.parse_args()
 
@@ -143,12 +143,13 @@ def tst_classify_networkx_synthetic_tg(
                                                 nodes_order_scramble_flag=nodes_order_scramble_flag,
                                                 symmetric_flag=symmetric_flag,
                                                 random=random)
-    rgd.graph_sample_dataset_to_networkx(graph_dataset)
+    # rgd.graph_sample_dataset_to_networkx(graph_dataset)
+    tg_dataset = su.transform_dataset_to_torch_geometric_dataset(graph_dataset.samples, graph_dataset.labels)
     print(f"{time.time() - start_time:.4f} Finished generating dataset")
 
     # print("")
     # print(graph_dataset)
-    tg_dataset = su.transform_networkx_to_torch_geometric_dataset(graph_dataset.samples, graph_dataset.labels)
+    # tg_dataset = su.transform_networkx_to_torch_geometric_dataset(graph_dataset.samples, graph_dataset.labels)
 
     pruning_params = prune_dataset(tg_dataset, args)
 
@@ -159,7 +160,7 @@ def tst_classify_networkx_synthetic_tg(
     test_acc = func_test(model, test_loader)
     print(f'{time.time() - start_time:.4f} Test Acc: {test_acc:.4f}')
 
-    for epoch in range(10):
+    for epoch in range(args.epochs):
         train(model, train_loader)
         train_acc = func_test(model, train_loader)
         test_acc = func_test(model, test_loader)

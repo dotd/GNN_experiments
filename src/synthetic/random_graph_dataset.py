@@ -2,6 +2,7 @@ import copy
 import numpy as np
 import networkx as nx
 import torch
+from tqdm import tqdm
 
 """
 Convetion:
@@ -110,10 +111,11 @@ def graph_sample_to_networkx(graph_sample):
 
 
 def graph_sample_dataset_to_networkx(graph_sample_dataset):
+    print("Transforming graph samples samples to networkx")
     samples_networkx = list()
     centers_networkx = list()
     # Transform the samples
-    for sample in graph_sample_dataset.samples:
+    for sample in tqdm(graph_sample_dataset.samples):
         sample_networkx = graph_sample_to_networkx(sample)
         samples_networkx.append(sample_networkx)
     # Transform the centers
@@ -240,6 +242,10 @@ def scramble_graph(graph_sample, random):
     graph_sample.scramble(idx)
 
 
+# def add_nodes(sample):
+#     nodes_vecs = random.normal(size=(num_nodes, dim_nodes)) * centers_nodes_std
+
+
 def generate_graphs_dataset(num_samples,
                             num_classes,
                             min_nodes,
@@ -298,6 +304,9 @@ def generate_graphs_dataset(num_samples,
         if nodes_order_scramble_flag:
             scramble_graph(sample, random)
         # print(f"scramble_graph=\n{center}")
+
+        # add random nodes
+        # add_nodes(sample)
 
         samples.append(sample)
 

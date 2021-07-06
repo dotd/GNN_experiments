@@ -24,7 +24,7 @@ def get_adjacent_edges_of_nodes(num_nodes, edge_index, edge_attr):
 
     if adjacent_edges_features is not None:
         for i in range(len(adjacent_edges_features)):
-            adjacent_edges_features[i] = torch.stack(adjacent_edges_features[i])
+            adjacent_edges_features[i] = torch.stack(adjacent_edges_features[i]) if len(adjacent_nodes[i]) != 0 else torch.tensor([])
 
     # adjacent_nodes = [edge_index_to[edge_index_from == i] for i in range(num_nodes)]
     #

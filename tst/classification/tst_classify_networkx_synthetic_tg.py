@@ -7,6 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from src.utils.date_utils import get_time_str
 from src.utils.logging_utils import get_clearml_logger
+from tst.ogb.main_pyg_with_pruning import prune_datasets, prune_dataset
 
 start_time = time.time()
 
@@ -56,6 +57,7 @@ def get_args():
     parser.add_argument('--wd', type=float, default=0, help='Weight decay value.')
     parser.add_argument('--num_minhash_funcs', type=int, default=1)
     parser.add_argument('--sparsity', type=int, default=25)
+    parser.add_argument("--complement", action='store_true', help="")
 
     # logging params:
     parser.add_argument('--exps_dir', type=str, help='Target directory to save logging files')
@@ -148,8 +150,11 @@ def tst_classify_networkx_synthetic_tg(
     # print(graph_dataset)
     tg_dataset = su.transform_networkx_to_torch_geometric_dataset(graph_dataset.samples, graph_dataset.labels)
 
+    pruning_params = prune_dataset(tg_dataset, args)
+
     train_loader = DataLoader(tg_dataset, batch_size=64, shuffle=True)
     test_loader = DataLoader(tg_dataset, batch_size=64, shuffle=False)
+
     model = GCN(hidden_channels=60, in_size=dim_nodes, out_size=num_classes)
     test_acc = func_test(model, test_loader)
     print(f'{time.time() - start_time:.4f} Test Acc: {test_acc:.4f}')

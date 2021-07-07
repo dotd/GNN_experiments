@@ -93,12 +93,12 @@ def split_to_train_test(dataset):
 
 class GCN(torch.nn.Module):
 
-    def __init__(self, hidden_channels, in_size, out_size):
+    def __init__(self, hidden_channels, in_size, out_size, conv_ctr=GCNConv):
         super(GCN, self).__init__()
         torch.manual_seed(12345)
-        self.conv1 = GCNConv(in_size, hidden_channels)
-        self.conv2 = GCNConv(hidden_channels, hidden_channels)
-        self.conv3 = GCNConv(hidden_channels, hidden_channels)
+        self.conv1 = conv_ctr(in_size, hidden_channels)
+        self.conv2 = conv_ctr(hidden_channels, hidden_channels)
+        self.conv3 = conv_ctr(hidden_channels, hidden_channels)
         self.lin = Linear(hidden_channels, out_size)
 
     def forward(self, x, edge_index, batch):

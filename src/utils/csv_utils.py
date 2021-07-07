@@ -1,11 +1,10 @@
 from os import path
 import pandas as pd
 
-csv_file = 'synthetic_results.csv'
-
 
 def prepare_csv(func):
     def inner(args):
+        csv_file = args.csv_file
         if not path.exists(csv_file):
 
             df = pd.DataFrame(columns=[
@@ -20,6 +19,6 @@ def prepare_csv(func):
                 'random time test',
                 ])
             df.to_csv(csv_file, index=False)
-        func(args)
+        func(args, csv_file)
 
     return inner

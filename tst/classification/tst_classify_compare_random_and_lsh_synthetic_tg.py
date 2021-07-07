@@ -6,8 +6,9 @@ import time
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from torch.utils.tensorboard import SummaryWriter
+from torch_geometric.nn import GATConv
 
-from src.utils.csv_utils import prepare_csv, csv_file
+from src.utils.csv_utils import prepare_csv
 from src.utils.date_utils import get_time_str
 from src.utils.logging_utils import get_clearml_logger
 from tst.ogb.main_pyg_with_pruning import prune_datasets, prune_dataset
@@ -64,6 +65,7 @@ def get_args():
 
     # logging params:
     parser.add_argument('--exps_dir', type=str, help='Target directory to save logging files')
+    parser.add_argument('--csv_file', type=str, help='synthetic_results.csv')
     parser.add_argument('--enable_clearml_logger',
                         default=False,
                         action='store_true',
@@ -161,10 +163,10 @@ def tst_classify_networkx_synthetic_tg(
 
     tg_dataset_train, tg_dataset_test = train_test_split(tg_dataset, test_size=0.25)
 
-    train_loader = DataLoader(tg_dataset_train, batch_size=64, shuffle=True)
-    test_loader = DataLoader(tg_dataset_test, batch_size=64, shuffle=False)
+    train_loader = DataLoader(tg_dataset_train, batch_size=args.batch_size, shuffle=True)
+    test_loader = DataLoader(tg_dataset_test, batch_size=args.batch_size, shuffle=False)
 
-    model = GCN(hidden_channels=60, in_size=dim_nodes, out_size=num_classes)
+    model = GCN(hidden_channels=60, in_size=dim_nodes, out_size=num_classes, conv_ctr=GATConv)
     test_acc, _ = func_test(model, test_loader)
     print(f'{time.time() - start_time:.4f} Test Acc: {test_acc:.4f}')
 
@@ -194,7 +196,7 @@ def tst_classify_networkx_synthetic_tg(
 
 
 @prepare_csv
-def main(args):
+def main(args, csv_file):
     df = pd.read_csv(csv_file)
     vals = dict()
 

@@ -158,13 +158,13 @@ def tst_classify_networkx_synthetic_tg(
     test_loader = DataLoader(tg_dataset, batch_size=64, shuffle=False)
 
     model = GCN(hidden_channels=60, in_size=dim_nodes, out_size=num_classes)
-    test_acc = func_test(model, test_loader)
+    test_acc, _ = func_test(model, test_loader)
     print(f'{time.time() - start_time:.4f} Test Acc: {test_acc:.4f}')
 
     for epoch in range(args.epochs):
         train(model, train_loader)
-        train_acc = func_test(model, train_loader)
-        test_acc = func_test(model, test_loader)
+        train_acc, _ = func_test(model, train_loader)
+        test_acc, _ = func_test(model, test_loader)
 
         if tb_writer is not None:
             tb_writer.add_scalars('Accuracy',
@@ -192,7 +192,7 @@ def main(args):
                                             tags=tags)
 
     print(f"{time.time() - start_time:.4f} start time")
-    tst_classify_networkx_synthetic_tg(**vars(args), tb_writer=tb_writer)
+    tst_classify_networkx_synthetic_tg(**vars(args), tb_writer=tb_writer, args=args)
     print(f"{time.time() - start_time:.4f} end time")
 
 

@@ -113,7 +113,8 @@ class MinHashRep:
         self.max_val = max_val
         self.prime = prime
         if perms is None:
-            self.perms = [(random.randint(0, min(self.max_val, prime)), random.randint(0, min(self.max_val, prime))) for i in range(self.N)]
+            self.perms = [(random.randint(0, min(self.max_val, prime)), random.randint(0, min(self.max_val, prime)))
+                          for _ in range(self.N)]
         else:
             self.perms = perms
 

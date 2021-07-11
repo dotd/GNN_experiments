@@ -104,10 +104,11 @@ class GCN(torch.nn.Module):
     def forward(self, x, edge_index, batch):
         # 1. Obtain node embeddings
         x = self.conv1(x, edge_index)
-        x = x.relu()
+        x = F.relu(x)
         x = self.conv2(x, edge_index)
-        x = x.relu()
+        x = F.relu(x)
         x = self.conv3(x, edge_index)
+        x = F.relu(x)
 
         # 2. Readout layer
         x = global_mean_pool(x, batch)  # [batch_size, hidden_channels]
@@ -119,7 +120,7 @@ class GCN(torch.nn.Module):
         return x
 
 
-def train(model, train_loader, lr=0.01):
+def train(model, train_loader, lr=0.01, log_every=50):
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = torch.nn.CrossEntropyLoss()
@@ -130,12 +131,13 @@ def train(model, train_loader, lr=0.01):
         loss.backward()  # Derive gradients.
         optimizer.step()  # Update parameters based on gradients.
         optimizer.zero_grad()  # Clear gradients.
-        print(f"Batch {batch_i + 1} / {len(train_loader)} | {(time.time() - start_time) / (batch_i + 1)} sec / iteration")
+        if batch_i % log_every == 0:
+            print(f"Batch {batch_i + 1} / {len(train_loader)} | {(time.time() - start_time) / (batch_i + 1)} sec / iteration")
 
     return (time.time() - start_time) / len(train_loader)
 
 
-def func_test(model, loader):
+def func_test(model, loader, log_every=50):
     model.eval()
 
     correct = 0
@@ -144,7 +146,8 @@ def func_test(model, loader):
         out = model(data.x, data.edge_index, data.batch)
         pred = out.argmax(dim=1)  # Use the class with highest probability.
         correct += int((pred == data.y).sum())  # Check against ground-truth labels.
-        print(f"Batch {batch_i + 1} / {len(loader)} | {(time.time() - start_time) / (batch_i + 1)} sec / iteration")
+        if batch_i % log_every == 0:
+            print(f"Batch {batch_i + 1} / {len(loader)} | {(time.time() - start_time) / (batch_i + 1)} sec / iteration")
     return correct / len(loader.dataset), (time.time() - start_time) / len(loader)
 
 

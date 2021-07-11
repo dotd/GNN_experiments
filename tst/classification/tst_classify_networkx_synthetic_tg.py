@@ -3,6 +3,7 @@ import argparse
 import numpy as np
 import time
 
+from sklearn.model_selection import train_test_split
 from torch.utils.tensorboard import SummaryWriter
 
 from src.utils.date_utils import get_time_str
@@ -31,9 +32,9 @@ def get_args():
                         help='number of GNN message passing layers (default: 5)')
     parser.add_argument('--emb_dim', type=int, default=300,
                         help='dimensionality of hidden units in GNNs (default: 300)')
-    parser.add_argument('--batch_size', type=int, default=32,
+    parser.add_argument('--batch_size', type=int, default=128,
                         help='input batch size for training (default: 32)')
-    parser.add_argument('--epochs', type=int, default=100,
+    parser.add_argument('--epochs', type=int, default=200,
                         help='number of epochs to train (default: 100)')
     parser.add_argument('--num_workers', type=int, default=0,
                         help='number of workers (default: 0)')
@@ -72,20 +73,20 @@ def get_args():
                         help='Email of the receiver of the results email')
 
     # dataset specific params:
-    parser.add_argument('--num_samples', type=int, default=1000, help='')
-    parser.add_argument('--num_classes', type=int, default=10, help='')
+    parser.add_argument('--num_samples', type=int, default=25000, help='')
+    parser.add_argument('--num_classes', type=int, default=50, help='')
     parser.add_argument('--min_nodes', type=int, default=50, help='')
     parser.add_argument('--max_nodes', type=int, default=60, help='')
-    parser.add_argument('--dim_nodes', type=int, default=4, help='')
-    parser.add_argument('--dim_edges', type=int, default=4, help='')
+    parser.add_argument('--dim_nodes', type=int, default=10, help='')
+    parser.add_argument('--dim_edges', type=int, default=10, help='')
     parser.add_argument('--connectivity_rate', type=float, default=0.2,
                         help='how many edges are connected to each node, normalized')
     parser.add_argument('--centers_nodes_std', type=float, default=0.2, help='the std of the nodes representation')
     parser.add_argument('--centers_edges_std', type=float, default=0.2, help='the std of the edges representation')
 
-    parser.add_argument('--node_additive_noise_std', type=float, default=0.2,
+    parser.add_argument('--node_additive_noise_std', type=float, default=0.1,
                         help='the std of the nodes noise, per sample')
-    parser.add_argument('--edge_additive_noise_std', type=float, default=0.2,
+    parser.add_argument('--edge_additive_noise_std', type=float, default=0.1,
                         help='the std of the edges noise, per sample')
 
     parser.add_argument('--connectivity_rate_noise', type=float, default=0.05,
@@ -154,8 +155,10 @@ def tst_classify_networkx_synthetic_tg(
 
     pruning_params = prune_dataset(tg_dataset, args)
 
-    train_loader = DataLoader(tg_dataset, batch_size=64, shuffle=True)
-    test_loader = DataLoader(tg_dataset, batch_size=64, shuffle=False)
+    tg_dataset_train, tg_dataset_test = train_test_split(tg_dataset, test_size=0.25)
+
+    train_loader = DataLoader(tg_dataset_train, batch_size=args.batch_size, shuffle=True)
+    test_loader = DataLoader(tg_dataset_test, batch_size=args.batch_size, shuffle=False)
 
     model = GCN(hidden_channels=60, in_size=dim_nodes, out_size=num_classes)
     test_acc, _ = func_test(model, test_loader)

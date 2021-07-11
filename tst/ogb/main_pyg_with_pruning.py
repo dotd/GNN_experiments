@@ -249,6 +249,7 @@ def prune_datasets(train_data, validation_data, test_data, args):
 
 
 def prune_dataset(original_dataset, args, random=np.random.RandomState(10), pruning_params=None):
+    print("Pruning the dataset...")
     if original_dataset is None or len(original_dataset) == 0:
         return None
     if args.pruning_method == 'minhash_lsh':

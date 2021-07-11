@@ -6,7 +6,7 @@ import time
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from torch.utils.tensorboard import SummaryWriter
-from torch_geometric.nn import GATConv
+from torch_geometric.nn import GATConv, GCNConv
 
 from src.utils.csv_utils import prepare_csv
 from src.utils.date_utils import get_time_str
@@ -35,21 +35,15 @@ def get_args():
                         help='number of GNN message passing layers (default: 5)')
     parser.add_argument('--emb_dim', type=int, default=300,
                         help='dimensionality of hidden units in GNNs (default: 300)')
-    parser.add_argument('--batch_size', type=int, default=32,
+    parser.add_argument('--batch_size', type=int, default=512,
                         help='input batch size for training (default: 32)')
-    parser.add_argument('--epochs', type=int, default=10,
+    parser.add_argument('--epochs', type=int, default=100,
                         help='number of epochs to train (default: 100)')
     parser.add_argument('--num_workers', type=int, default=0,
                         help='number of workers (default: 0)')
-    parser.add_argument('--dataset', type=str, default="ogbg-molhiv",
+    parser.add_argument('--dataset', type=str, default="synthetic",
                         help='dataset name (default: ogbg-molhiv)',
-                        choices=['ogbg-molhiv', 'ogbg-molpcba', 'ogbg-ppa', 'ogbg-code2', 'mnist', 'zinc', 'reddit',
-                                 'amazon_comp', "Cora", "CiteSeer", "PubMed", 'QM9'])
-    parser.add_argument('--target', type=int, default=0,
-                        help='for datasets with multiple tasks, provide the target index')
-    parser.add_argument('--feature', type=str, default="full", help='full feature or simple feature')
-    parser.add_argument('--filename', type=str, default="",
-                        help='filename to output result (default: )')
+                        choices=['synthetic'])
     parser.add_argument('--proxy', action="store_true", default=False,
                         help="Set proxy env. variables. Need in bosch networks.", )
 
@@ -60,7 +54,7 @@ def get_args():
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--wd', type=float, default=0, help='Weight decay value.')
     parser.add_argument('--num_minhash_funcs', type=int, default=1)
-    parser.add_argument('--sparsity', type=int, default=25)
+    parser.add_argument('--sparsity', type=int, default=8)
     parser.add_argument("--complement", action='store_true', help="")
 
     # logging params:
@@ -77,23 +71,23 @@ def get_args():
                         help='Email of the receiver of the results email')
 
     # dataset specific params:
-    parser.add_argument('--num_samples', type=int, default=1000, help='')
-    parser.add_argument('--num_classes', type=int, default=10, help='')
-    parser.add_argument('--min_nodes', type=int, default=50, help='')
+    parser.add_argument('--num_samples', type=int, default=20000, help='')
+    parser.add_argument('--num_classes', type=int, default=100, help='')
+    parser.add_argument('--min_nodes', type=int, default=40, help='')
     parser.add_argument('--max_nodes', type=int, default=60, help='')
-    parser.add_argument('--dim_nodes', type=int, default=4, help='')
-    parser.add_argument('--dim_edges', type=int, default=4, help='')
-    parser.add_argument('--connectivity_rate', type=float, default=0.2,
+    parser.add_argument('--dim_nodes', type=int, default=10, help='')
+    parser.add_argument('--dim_edges', type=int, default=40, help='')
+    parser.add_argument('--connectivity_rate', type=float, default=0.25,
                         help='how many edges are connected to each node, normalized')
     parser.add_argument('--centers_nodes_std', type=float, default=0.2, help='the std of the nodes representation')
     parser.add_argument('--centers_edges_std', type=float, default=0.2, help='the std of the edges representation')
 
-    parser.add_argument('--node_additive_noise_std', type=float, default=0.2,
+    parser.add_argument('--node_additive_noise_std', type=float, default=0.1,
                         help='the std of the nodes noise, per sample')
-    parser.add_argument('--edge_additive_noise_std', type=float, default=0.2,
+    parser.add_argument('--edge_additive_noise_std', type=float, default=0.1,
                         help='the std of the edges noise, per sample')
 
-    parser.add_argument('--connectivity_rate_noise', type=float, default=0.05,
+    parser.add_argument('--connectivity_rate_noise', type=float, default=0.1,
                         help='the edges rate for the parallel graph')
     parser.add_argument('--symmetric_flag', default=False, action='store_true',
                         help='whether the graph is bidirectional')
@@ -151,13 +145,9 @@ def tst_classify_networkx_synthetic_tg(
                                                     nodes_order_scramble_flag=nodes_order_scramble_flag,
                                                     symmetric_flag=symmetric_flag,
                                                     random=random)
-    # rgd.graph_sample_dataset_to_networkx(graph_dataset)
+
     tg_dataset = su.transform_dataset_to_torch_geometric_dataset(graph_dataset.samples, graph_dataset.labels)
     print(f"{time.time() - start_time:.4f} Finished generating dataset")
-
-    # print("")
-    # print(graph_dataset)
-    # tg_dataset = su.transform_networkx_to_torch_geometric_dataset(graph_dataset.samples, graph_dataset.labels)
 
     pruning_params, prunning_ratio = prune_dataset(tg_dataset, args)
 
@@ -166,7 +156,7 @@ def tst_classify_networkx_synthetic_tg(
     train_loader = DataLoader(tg_dataset_train, batch_size=args.batch_size, shuffle=True)
     test_loader = DataLoader(tg_dataset_test, batch_size=args.batch_size, shuffle=False)
 
-    model = GCN(hidden_channels=60, in_size=dim_nodes, out_size=num_classes, conv_ctr=GATConv)
+    model = GCN(hidden_channels=48, in_size=dim_nodes, out_size=num_classes, conv_ctr=GCNConv)
     test_acc, _ = func_test(model, test_loader)
     print(f'{time.time() - start_time:.4f} Test Acc: {test_acc:.4f}')
 
@@ -197,7 +187,6 @@ def tst_classify_networkx_synthetic_tg(
 
 @prepare_csv
 def main(args, csv_file):
-    df = pd.read_csv(csv_file)
     vals = dict()
 
     """
@@ -261,6 +250,7 @@ def main(args, csv_file):
     vals['random test'] = best_test
     vals['random time train'] = avg_time_train
     vals['random time test'] = avg_time_test
+    df = pd.read_csv(csv_file)
     df = df.append(vals, ignore_index=True)
     df.to_csv(csv_file, index=False)
 

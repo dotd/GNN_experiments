@@ -10,8 +10,6 @@ def get_adjacent_edges_of_nodes(num_nodes, edge_index, edge_attr):
     adjacent_edges_features = [[] for _ in range(num_nodes)] if edge_attr is not None else None
 
     for i in range(len(edge_index_from)):
-        # if (i / len(edge_index_from)) > 0.7:
-        #     break
         if i % 1e+6 == 0 and i != 0:
             print(f"Processed {i} / {len(edge_index_from)} edges ({(i / len(edge_index_from)) * 100} %)")
 
@@ -25,13 +23,6 @@ def get_adjacent_edges_of_nodes(num_nodes, edge_index, edge_attr):
     if adjacent_edges_features is not None:
         for i in range(len(adjacent_edges_features)):
             adjacent_edges_features[i] = torch.stack(adjacent_edges_features[i])
-
-    # adjacent_nodes = [edge_index_to[edge_index_from == i] for i in range(num_nodes)]
-    #
-    # if len(edge_attr.shape) == 1:
-    #     adjacent_edges_features = [edge_attr[edge_index_from == i] for i in range(num_nodes)] if edge_attr is not None else None
-    # else:
-    #     adjacent_edges_features = [edge_attr[edge_index_from == i, :] for i in range(num_nodes)] if edge_attr is not None else None
 
     return adjacent_nodes, adjacent_edges_features
 
@@ -63,13 +54,15 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
                                        complement=False,
                                        ):
     """
-    :param num_nodes:
-    :param edge_list:
-    :param edge_attrs:
-    :param node_attr:
+    :param num_nodes: The number of nodes in the graph
+    :param edge_list: a list of edges describing the connection in the graph
+    :param edge_attrs: the attributes of the edges
+    :param node_attr: the attributes of the nodes
     :param minhash:
-    :param lsh:
+    :param lsh_nodes:
+    :param lsh_edges:
     :param prunning_mode: There is "all" for node_attr & edge_attr, "node" for only local nodes, and "edge" for only adjacent edges
+    :param complement: whether to keep/remove the hashed edges
     :return:
     """
     # Num edges
@@ -77,9 +70,6 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
     # The pruned list of edges
     new_edges_list = list()
     new_attr_list = list()
-
-    complement_new_edges_list = list()
-    complement_new_attr_list = list()
 
     # for each node get a list of adjacent nodes and the corresponding representations.
     adjacent_nodes, adjacent_edges_attrs = get_adjacent_edges_of_nodes(num_nodes,
@@ -136,9 +126,6 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
     # We return a numpy array
     new_edges_torch = torch.LongTensor(new_edges_list).T
     new_attr_torch = torch.stack(new_attr_list, axis=0) if len(new_attr_list) else torch.tensor([])
-
-    all_edges = [tuple(edge) for edge in edge_list.T.numpy()]
-    # for edge, attrs in zip(all_edges, edg)
 
     return new_edges_torch, new_attr_torch
 

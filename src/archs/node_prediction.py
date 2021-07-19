@@ -4,10 +4,10 @@ import torch.nn.functional as F
 
 
 class NodeGat(nn.Module):
-    def __init__(self, num_features, num_classes, num_hidden, num_heads):
+    def __init__(self, num_features, num_classes, num_hidden, num_heads, n_hidden_layers=2):
         super(NodeGat, self).__init__()
         self.conv1 = GATConv(num_features, num_hidden, num_heads)
-        self.conv2 = GATConv(num_hidden * num_heads, num_hidden, num_heads)
+        self.conv2 = nn.Sequential(*[GATConv(num_hidden * num_heads, num_hidden, num_heads) for _ in range(n_hidden_layers)])
         self.clf = nn.Linear(num_hidden * num_heads, num_classes)
 
     def forward(self, x, edge_index):

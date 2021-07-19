@@ -9,11 +9,13 @@ class LSH:
                  sparsity,
                  std_of_threshold,
                  random,
+                 mean_of_threshold,
                  **kwargs):
         self.din = din
         self.num_functions = num_functions
         self.sparsity = min(sparsity, self.din)
         self.std_of_threshold = std_of_threshold
+        self.mean_of_threshold = mean_of_threshold
         self.random = random
 
         # Create the functions by the parameters
@@ -21,7 +23,7 @@ class LSH:
         self.lsh_thresholds = list()
         for i in range(self.num_functions):
             self.indices.append(random.permutation(self.din)[0:self.sparsity])
-            self.lsh_thresholds.append(self.random.normal(0, self.std_of_threshold, size=self.sparsity))
+            self.lsh_thresholds.append(self.random.normal(0, self.std_of_threshold, size=self.sparsity) + self.mean_of_threshold)
 
     def sign_vector(self, vec):
         signatures = [vec[self.indices[i]] <= self.lsh_thresholds[i] for i in range(self.num_functions)]

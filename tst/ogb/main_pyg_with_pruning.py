@@ -62,7 +62,7 @@ def get_args():
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--gnn', type=str, default='gcn',
                         help='GNN gcn, or gcn-virtual (default: gcn)',
-                        choices=['gcn', 'gat', 'monet', 'pna', 'sage', 'mlp', 'mxmnet'])
+                        choices=['gcn', 'gat', 'monet', 'pna', 'sage', 'gat_sage', 'mlp', 'mxmnet', 'arma'])
     parser.add_argument('--drop_ratio', type=float, default=0.5,
                         help='dropout ratio (default: 0.5)')
     parser.add_argument('--num_layer', type=int, default=5,
@@ -78,7 +78,7 @@ def get_args():
     parser.add_argument('--dataset', type=str, default="ogbg-molhiv",
                         help='dataset name (default: ogbg-molhiv)',
                         choices=['ogbg-molhiv', 'ogbg-molpcba', 'ogbg-ppa', 'ogbg-code2', 'mnist', 'zinc', 'reddit',
-                                 'amazon_comp', "Cora", "CiteSeer", "PubMed", 'QM9'])
+                                 'amazon_photo', 'amazon_comp', "Cora", "CiteSeer", "PubMed", 'QM9'])
     parser.add_argument('--target', type=int, default=0, help='for datasets with multiple tasks, provide the target index')
     parser.add_argument('--feature', type=str, default="full", help='full feature or simple feature')
     parser.add_argument('--filename', type=str, default="",
@@ -94,6 +94,7 @@ def get_args():
     parser.add_argument('--wd', type=float, default=0, help='Weight decay value.')
     parser.add_argument('--num_minhash_funcs', type=int, default=1)
     parser.add_argument('--sparsity', type=int, default=25)
+    parser.add_argument("--complement", action='store_true', help="")
 
     # dataset specific params:
     parser.add_argument('--max_seq_len', type=int, default=5,
@@ -107,6 +108,7 @@ def get_args():
                         help='Convert every graph G to L(G) as a line graph')
 
     # logging params:
+    parser.add_argument('--csv_file', type=str, help='results.csv')
     parser.add_argument('--exps_dir', type=str, help='Target directory to save logging files')
     parser.add_argument('--enable_clearml_logger',
                         default=False,
@@ -258,6 +260,7 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(10), prun
             lsh_num_funcs = args.num_minhash_funcs
             sparsity = args.sparsity
             std_of_threshold = 1
+            mean_of_threshold = 1
             dim_edges = 0
             if original_dataset[0].edge_attr is not None:
                 if len(original_dataset[0].edge_attr.shape) == 1:
@@ -272,11 +275,13 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(10), prun
                           'num_functions': lsh_num_funcs,
                           'sparsity': sparsity,
                           'std_of_threshold': std_of_threshold,
+                          'mean_of_threshold': mean_of_threshold,
                           'random': random, },
                 'edges': {'din': dim_edges,
                           'num_functions': lsh_num_funcs,
                           'sparsity': sparsity,
                           'std_of_threshold': std_of_threshold,
+                          'mean_of_threshold': mean_of_threshold,
                           'random': random, },
             }
             lsh_nodes = LSH(**pruning_params['nodes']) if dim_nodes != 0 else None

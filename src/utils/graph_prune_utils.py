@@ -43,6 +43,67 @@ def chunk_string(string, length):
     return [string[0+i:length+i] for i in range(0, len(string), length)]
 
 
+def generate_edge_representation(n, adjacent_nodes, lsh_nodes, lsh_edges, adjacent_edges_attrs, node_attr, lsh_nodes_signatures):
+    """
+    Constructs a binary representation of edges, signed due to LSH by thresholding using psuedo-randomized vectors
+    Args:
+        n: the ID of the node for which we want to generate signatures for its edges
+        adjacent_nodes: the IDs of the adjacent nodes of node n
+        lsh_nodes: an LSH object for signing the nodes
+        lsh_edges: an LSH object for signing the edges
+        adjacent_edges_attrs: the attributes of the edges connecting the node n with its neighbors
+        node_attr: the list of all node attributes in the graph
+        lsh_nodes_signatures: the signed node attribtues
+
+    Returns: signatures for the edges connecting node n
+    """
+    # Get all the adjacent nodes and edge attributes
+    adjacent_nodes_local = adjacent_nodes[n]
+
+    # If no adjacent nodes, let's continue
+    if len(adjacent_nodes_local) == 0:
+        return None
+
+    # Set of all adjacent nodes where we use the lsh representation for the set
+
+    # Going over the adjacent for each node and make the mappings.
+    if lsh_edges is not None:
+        edge_attrs = adjacent_edges_attrs[n]
+        adjacent_meta = [((n, node.item()), edge_attrs[idx]) for idx, node in enumerate(adjacent_nodes_local)]
+        signatures_edge_attrs = lsh_edges.sign_vectors(edge_attrs.numpy()) if lsh_edges is not None else None
+    else:
+        adjacent_meta = [((n, node.item()), node_attr[node.item()]) for node in adjacent_nodes_local]
+
+    if lsh_nodes is not None and lsh_edges is not None:
+        source_tensor = lsh_nodes_signatures[n][np.newaxis, ...].repeat(repeats=len(adjacent_nodes_local), axis=0)
+        target_tensor = np.stack([lsh_nodes_signatures[adj] for adj in adjacent_nodes_local])
+        rep_tensor = np.hstack([source_tensor, signatures_edge_attrs, target_tensor])
+    elif lsh_nodes is None:
+        rep_tensor = signatures_edge_attrs
+    elif lsh_edges is None:
+        source_tensor = lsh_nodes_signatures[n][np.newaxis, ...].repeat(repeats=len(adjacent_nodes_local), axis=0)
+        target_tensor = np.stack([lsh_nodes_signatures[adj] for adj in adjacent_nodes_local])
+        rep_tensor = np.hstack([source_tensor, target_tensor])
+    else:
+        raise Exception("No features in the graph")
+
+    rep_dim = rep_tensor.shape[-1]
+    rep_flat_str = ''.join(map(str, rep_tensor.flatten()))
+    adjacent_reps = chunk_string(rep_flat_str, rep_dim)
+    return adjacent_reps, adjacent_meta
+
+
+def prune_edges_for_node_using_edge_signatures(minhash, adjacent_reps, adjacent_meta, complement):
+    # Transform the adjacent nodes to their signatures
+    results = minhash.apply(adjacent_reps, adjacent_meta)
+    results_metas = [result.meta for result in results]
+    if not complement:
+        return results_metas
+
+    complement_results_metas = [meta for meta in adjacent_meta if meta not in results_metas]
+    return complement_results_metas
+
+
 def _prune_edges_by_minhash_lsh_helper(num_nodes,
                                        edge_list,
                                        edge_attrs,
@@ -80,46 +141,19 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
 
     for n in range(num_nodes):
         # Get all the adjacent nodes and edge attributes
-        adjacent_nodes_local = adjacent_nodes[n]
-
-        # If no adjacent nodes, let's continue
-        if len(adjacent_nodes_local) == 0:
-            continue
-
-        # Set of all adjacent nodes where we use the lsh representation for the set
-
-        # Going over the adjacent for each node and make the mappings.
-        if lsh_edges is not None:
-            edge_attrs = adjacent_edges_attrs[n]
-            adjacent_meta = [((n, node.item()), edge_attrs[idx]) for idx, node in enumerate(adjacent_nodes_local)]
-            signatures_edge_attrs = lsh_edges.sign_vectors(edge_attrs.numpy()) if lsh_edges is not None else None
-        else:
-            adjacent_meta = [((n, node.item()), node_attr[node.item()]) for node in adjacent_nodes_local]
-
-        if lsh_nodes is not None and lsh_edges is not None:
-            source_tensor = lsh_nodes_signatures[n][np.newaxis, ...].repeat(repeats=len(adjacent_nodes_local), axis=0)
-            target_tensor = np.stack([lsh_nodes_signatures[adj] for adj in adjacent_nodes_local])
-            rep_tensor = np.hstack([source_tensor, signatures_edge_attrs, target_tensor])
-        elif lsh_nodes is None:
-            rep_tensor = signatures_edge_attrs
-        elif lsh_edges is None:
-            source_tensor = lsh_nodes_signatures[n][np.newaxis, ...].repeat(repeats=len(adjacent_nodes_local), axis=0)
-            target_tensor = np.stack([lsh_nodes_signatures[adj] for adj in adjacent_nodes_local])
-            rep_tensor = np.hstack([source_tensor, target_tensor])
-        else:
-            raise Exception("No features in the graph")
-
-        rep_dim = rep_tensor.shape[-1]
-        rep_flat_str = ''.join(map(str, rep_tensor.flatten()))
-        adjacent_reps = chunk_string(rep_flat_str, rep_dim)
+        adjacent_reps, adjacent_meta = generate_edge_representation(n,
+                                                                    adjacent_nodes,
+                                                                    lsh_nodes,
+                                                                    lsh_edges,
+                                                                    adjacent_edges_attrs,
+                                                                    node_attr,
+                                                                    lsh_nodes_signatures)
 
         # Transform the adjacent nodes to their signatures
-        results = minhash.apply(adjacent_reps, adjacent_meta)
-        results_metas = [result.meta for result in results]
-        complement_results_metas = [meta for meta in adjacent_meta if meta not in results_metas]
-        # The pruned list construction
-        if complement:
-            results_metas = complement_results_metas
+        results_metas = prune_edges_for_node_using_edge_signatures(minhash,
+                                                                   adjacent_reps,
+                                                                   adjacent_meta,
+                                                                   complement)
         for meta in results_metas:
             new_edges_list.append(meta[0])
             new_attr_list.append(torch.tensor(meta[1]))

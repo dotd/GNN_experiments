@@ -180,17 +180,14 @@ def load_dataset(args):
         test_data = list(test_data)
 
     elif args.dataset == 'QM9':
+        QM9_VALIDATION_START = 110000
+        QM9_VALIDATION_END = 120000
         dataset = QM9(root='dataset', transform=ExtractTargetTransform(args.target)).shuffle()
         dataset.name = 'QM9'
         dataset.eval_metric = 'mae'
-        # data = dataset.data
-        # data.x, data.z = data.z, data.x
-        # data.x = data.z.reshape(-1, 1)
-        # dataset.data = data
-        # Split dataset
-        train_data = dataset[:110000]
-        validation_data = dataset[110000:120000]
-        test_data = dataset[120000:]
+        train_data = dataset[:QM9_VALIDATION_START]
+        validation_data = dataset[QM9_VALIDATION_START:QM9_VALIDATION_END]
+        test_data = dataset[QM9_VALIDATION_END:]
         train_data = list(train_data)
         validation_data = list(validation_data)
         test_data = list(test_data)

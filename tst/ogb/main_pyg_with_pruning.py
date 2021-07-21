@@ -185,9 +185,11 @@ def load_dataset(args):
         dataset = QM9(root='dataset', transform=ExtractTargetTransform(args.target)).shuffle()
         dataset.name = 'QM9'
         dataset.eval_metric = 'mae'
+
         train_data = dataset[:QM9_VALIDATION_START]
         validation_data = dataset[QM9_VALIDATION_START:QM9_VALIDATION_END]
         test_data = dataset[QM9_VALIDATION_END:]
+
         train_data = list(train_data)
         validation_data = list(validation_data)
         test_data = list(test_data)

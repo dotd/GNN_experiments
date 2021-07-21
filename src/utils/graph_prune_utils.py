@@ -154,6 +154,7 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
 
     for n in range(num_nodes):
         # Get all the adjacent nodes and edge attributes
+
         adjacent_reps, adjacent_meta = generate_edge_representation(n,
                                                                     adjacent_nodes,
                                                                     lsh_nodes,
@@ -161,6 +162,7 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
                                                                     adjacent_edges_attrs,
                                                                     node_attr,
                                                                     lsh_nodes_signatures)
+
 
         # Transform the adjacent nodes to their signatures
         results_metas = prune_edges_for_node_using_edge_signatures(minhash,

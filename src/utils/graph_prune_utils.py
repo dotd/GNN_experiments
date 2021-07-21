@@ -94,6 +94,20 @@ def generate_edge_representation(n, adjacent_nodes, lsh_nodes, lsh_edges, adjace
 
 
 def prune_edges_for_node_using_edge_signatures(minhash, adjacent_reps, adjacent_meta, complement):
+    """
+    Pruned the set of edges connecting a node with its neighbors
+    Args:
+        minhash: the minhash object we use for choosing edges for the sparsified graph
+        adjacent_reps: the signatures of the edges
+        adjacent_meta: original attributes of the edges
+        complement: whether to return the set of chosen edges or its complement.
+                    Denote the set of edges connected to node n as E_n and the set of edges chosen by
+                    minhash as E_c. if:
+                        'complement' is False --> return E_c
+                         'complement' is True --> return E_n - E_c
+
+    Returns: the set of edges participating in the resulting sparsified graph
+    """
     # Transform the adjacent nodes to their signatures
     results = minhash.apply(adjacent_reps, adjacent_meta)
     results_metas = [result.meta for result in results]
@@ -119,12 +133,11 @@ def _prune_edges_by_minhash_lsh_helper(num_nodes,
     :param edge_list: a list of edges describing the connection in the graph
     :param edge_attrs: the attributes of the edges
     :param node_attr: the attributes of the nodes
-    :param minhash:
-    :param lsh_nodes:
-    :param lsh_edges:
+    :param minhash: the minhash object we use for choosing edges for the sparsified graph
+    lsh_nodes: an LSH object for signing the nodes
+    lsh_edges: an LSH object for signing the edges
     :param prunning_mode: There is "all" for node_attr & edge_attr, "node" for only local nodes, and "edge" for only adjacent edges
     :param complement: whether to keep/remove the hashed edges
-    :return:
     """
     # Num edges
     num_edges = edge_list.shape[1]

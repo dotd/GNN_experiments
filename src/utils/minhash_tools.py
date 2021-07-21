@@ -119,6 +119,14 @@ class MinHashRep:
             self.perms = perms
 
     def apply(self, s, metas=None):
+        """
+        constructs a subset of the input set 's', consisting of items corresponding to signatures with
+        minimal hash values
+        Args:
+            s: the signatures of the original set from which we construct a subset of items
+            metas: the original attributes of the items in the original set
+        Returns: a subset of items corresponding of minimal hash values
+        """
         result = []
         used_indices = [0] * len(s)
         if metas is None:

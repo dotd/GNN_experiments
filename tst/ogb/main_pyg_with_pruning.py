@@ -182,17 +182,16 @@ def load_dataset(args):
         test_data = list(test_data)
 
     elif args.dataset == 'QM9':
+        QM9_VALIDATION_START = 110000
+        QM9_VALIDATION_END = 120000
         dataset = QM9(root='dataset', transform=ExtractTargetTransform(args.target)).shuffle()
         dataset.name = 'QM9'
         dataset.eval_metric = 'mae'
-        # data = dataset.data
-        # data.x, data.z = data.z, data.x
-        # data.x = data.z.reshape(-1, 1)
-        # dataset.data = data
-        # Split dataset
-        train_data = dataset[:110000]
-        validation_data = dataset[110000:120000]
-        test_data = dataset[120000:]
+
+        train_data = dataset[:QM9_VALIDATION_START]
+        validation_data = dataset[QM9_VALIDATION_START:QM9_VALIDATION_END]
+        test_data = dataset[QM9_VALIDATION_END:]
+
         train_data = list(train_data)
         validation_data = list(validation_data)
         test_data = list(test_data)
@@ -250,13 +249,12 @@ def prune_datasets(train_data, validation_data, test_data, args):
     return train_data, validation_data, test_data
 
 
-def prune_dataset(original_dataset, args, random=np.random.RandomState(10), pruning_params=None):
-    print("Pruning the dataset...")
+def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruning_params=None):
     if original_dataset is None or len(original_dataset) == 0:
         return None
     if args.pruning_method == 'minhash_lsh':
         if pruning_params is None:
-            dim_nodes = original_dataset[0].x.shape[1] if len(original_dataset[0].x.shape) == 2 else 1
+            dim_nodes = original_dataset[0].x.shape[1] if len(original_dataset[0].x.shape) == 2 else 0
             lsh_num_funcs = args.num_minhash_funcs
             sparsity = args.sparsity
             std_of_threshold = 1

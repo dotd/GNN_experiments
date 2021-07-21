@@ -259,8 +259,8 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(10), prun
             dim_nodes = original_dataset[0].x.shape[1] if len(original_dataset[0].x.shape) == 2 else 1
             lsh_num_funcs = args.num_minhash_funcs
             sparsity = args.sparsity
-            std_of_threshold = 0.5
-            mean_of_threshold = 0
+            std_of_threshold = 1
+            mean_of_threshold = 1
             dim_edges = 0
             if original_dataset[0].edge_attr is not None:
                 if len(original_dataset[0].edge_attr.shape) == 1:

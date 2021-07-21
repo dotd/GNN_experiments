@@ -176,6 +176,12 @@ def get_model(num_features, num_classes, arch):
     elif arch == 'gat8':
         model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2, n_hidden_layers=8)
         sage = False
+    elif arch == 'gat16':
+        model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2, n_hidden_layers=16)
+        sage = False
+    elif arch == 'gat32':
+        model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2, n_hidden_layers=32)
+        sage = False
     elif arch == 'arma':
         model = NodeARMA(num_features=num_features, num_classes=num_classes)
         sage = False

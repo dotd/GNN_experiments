@@ -126,8 +126,6 @@ class MinHashRep:
             minimal_value = MH()
             chosen_item_idx = 0
             for item_idx, (val_orig, meta) in enumerate(zip(s, metas)):
-                # if used_indices[item_idx]:
-                #     continue
                 # ensure s is composed of integers
                 if not isinstance(val_orig, int):
                     val = (hash(val_orig) % self.prime, val_orig)

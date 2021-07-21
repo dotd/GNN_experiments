@@ -118,12 +118,22 @@ class MinHashRep:
             self.perms = perms
 
     def apply(self, s, metas=None):
+        """
+        constructs a subset of the input set 's', consisting of items corresponding to signatures with
+        minimal hash values
+        Args:
+            s: the signatures of the original set from which we construct a subset of items
+            metas: the original attributes of the items in the original set
+        Returns: a subset of items corresponding of minimal hash values
+        """
         result = []
+        used_indices = [0] * len(s)
         if metas is None:
             metas = s
         for idx, perm in enumerate(self.perms):
             minimal_value = MH()
-            for val_orig, meta in zip(s, metas):
+            chosen_item_idx = 0
+            for item_idx, (val_orig, meta) in enumerate(zip(s, metas)):
                 # ensure s is composed of integers
                 if not isinstance(val_orig, int):
                     val = (hash(val_orig) % self.prime, val_orig)
@@ -133,9 +143,15 @@ class MinHashRep:
                 a, b = perm
                 new_val = (a * val[0] + b) % self.prime
                 if new_val < minimal_value.value:
+                    chosen_item_idx = item_idx
                     minimal_value = MH(new_val, val[1], meta)
+
+            if used_indices[chosen_item_idx]:
+                continue
+
+            used_indices[chosen_item_idx] = 1
             result.append(minimal_value)
-        # the returned vector represents the minimum hash of the set s
+
         return result
 
     def __str__(self):

@@ -15,7 +15,7 @@ from src.archs.MXMNet import MXMNet
 from src.archs.SimpleGCN import SimpleGCN
 from src.archs.pna import PNA
 from tst.ogb.encoder_utils import ASTNodeEncoder, get_vocab_mapping
-from tst.ogb.gat_geometric import GAT
+from src.archs.gat_geometric import GAT
 from tst.ogb.gcn import GCN
 from tst.ogb.gnn import GNN
 from src.archs.monet import MoNet

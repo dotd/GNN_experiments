@@ -93,6 +93,7 @@ def get_args():
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--wd', type=float, default=0, help='Weight decay value.')
     parser.add_argument('--num_minhash_funcs', type=int, default=1)
+    parser.add_argument('--sparsity', type=int, default=25)
 
     # dataset specific params:
     parser.add_argument('--max_seq_len', type=int, default=5,
@@ -179,17 +180,16 @@ def load_dataset(args):
         test_data = list(test_data)
 
     elif args.dataset == 'QM9':
+        QM9_VALIDATION_START = 110000
+        QM9_VALIDATION_END = 120000
         dataset = QM9(root='dataset', transform=ExtractTargetTransform(args.target)).shuffle()
         dataset.name = 'QM9'
         dataset.eval_metric = 'mae'
-        # data = dataset.data
-        # data.x, data.z = data.z, data.x
-        # data.x = data.z.reshape(-1, 1)
-        # dataset.data = data
-        # Split dataset
-        train_data = dataset[:110000]
-        validation_data = dataset[110000:120000]
-        test_data = dataset[120000:]
+
+        train_data = dataset[:QM9_VALIDATION_START]
+        validation_data = dataset[QM9_VALIDATION_START:QM9_VALIDATION_END]
+        test_data = dataset[QM9_VALIDATION_END:]
+
         train_data = list(train_data)
         validation_data = list(validation_data)
         test_data = list(test_data)
@@ -254,7 +254,7 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruni
         if pruning_params is None:
             dim_nodes = original_dataset[0].x.shape[1] if len(original_dataset[0].x.shape) == 2 else 1
             lsh_num_funcs = args.num_minhash_funcs
-            sparsity = 7
+            sparsity = args.sparsity
             std_of_threshold = 1
             dim_edges = 0
             if original_dataset[0].edge_attr is not None:
@@ -290,14 +290,16 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruni
                                           method="minhash_lsh",
                                           minhash=pruning_params['minhash'],
                                           lsh_nodes=pruning_params['nodes']['lsh'],
-                                          lsh_edges=pruning_params['edges']['lsh'], )
+                                          lsh_edges=pruning_params['edges']['lsh'],
+                                          complement=args.complement)
         print(f"prunning_ratio = {prunning_ratio}")
 
     elif args.pruning_method == 'random':
         tg_dataset_prune(tg_dataset=original_dataset,
                          method="random",
                          p=args.random_pruning_prob,
-                         random=random, )
+                         random=random,
+                         complement=args.complement)
 
     else:
         raise NotImplementedError(f"Pruning method {args.pruning_method} not implemented")

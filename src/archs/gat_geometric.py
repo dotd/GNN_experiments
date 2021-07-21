@@ -26,5 +26,4 @@ class GAT(torch.nn.Module):
         x = self.conv1(x, edge_index)
         x = F.elu(x)
         x = self.conv2(x, edge_index)
-        x = F.elu(x)
         return x

@@ -29,14 +29,3 @@ class MLP(nn.Module):
 
     def forward(self, x):
         return self.net(x)
-
-
-class RegressionMLP(MLP):
-    def __init__(self, in_features, prediction_length, n_steps, dropout=None):
-        super(RegressionMLP, self).__init__(in_features, prediction_length, n_steps, dropout)
-        self.final_activation = nn.Tanh()
-
-    def forward(self, x):
-        x = super(RegressionMLP, self).forward(x)
-        # x = self.final_activation(x)
-        return x

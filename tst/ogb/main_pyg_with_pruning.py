@@ -24,7 +24,7 @@ from src.utils.extract_target_transform import ExtractTargetTransform
 from src.utils.graph_prune_utils import tg_dataset_prune
 from src.utils.logging_utils import register_logger, log_args_description, get_clearml_logger, log_command
 from src.utils.lsh_euclidean_tools import LSH
-from src.utils.minhash_tools import MinHash, MinHashRep
+from src.utils.minhash_tools import MinHash, MinHashRep, MinHashRandomProj
 from src.utils.proxy_utils import set_proxy
 from tst.ogb.encoder_utils import augment_edge, decode_arr_to_seq, encode_y_to_arr, get_vocab_mapping
 from tst.ogb.exp_utils import get_loss_function, evaluate, train
@@ -78,7 +78,7 @@ def get_args():
     parser.add_argument('--dataset', type=str, default="ogbg-molhiv",
                         help='dataset name (default: ogbg-molhiv)',
                         choices=['ogbg-molhiv', 'ogbg-molpcba', 'ogbg-ppa', 'ogbg-code2', 'mnist', 'zinc', 'reddit',
-                                 'amazon_photo', 'amazon_comp', "Cora", "CiteSeer", "PubMed", 'QM9'])
+                                 'amazon_photo', 'amazon_comp', "Cora", "CiteSeer", "PubMed", 'QM9', 'ppi'])
     parser.add_argument('--target', type=int, default=0, help='for datasets with multiple tasks, provide the target index')
     parser.add_argument('--feature', type=str, default="full", help='full feature or simple feature')
     parser.add_argument('--filename', type=str, default="",
@@ -88,13 +88,14 @@ def get_args():
 
     # Pruning specific params:
     parser.add_argument('--pruning_method', type=str, default='random',
-                        choices=["minhash_lsh", "random"])
+                        choices=["minhash_lsh_thresholding", "minhash_lsh_projection", "random"])
     parser.add_argument('--random_pruning_prob', type=float, default=.5)
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--wd', type=float, default=0, help='Weight decay value.')
     parser.add_argument('--num_minhash_funcs', type=int, default=1)
     parser.add_argument('--sparsity', type=int, default=25)
     parser.add_argument("--complement", action='store_true', help="")
+    parser.add_argument("--quantization_step", type=int, default=1, help="")
 
     # dataset specific params:
     parser.add_argument('--max_seq_len', type=int, default=5,
@@ -252,7 +253,35 @@ def prune_datasets(train_data, validation_data, test_data, args):
 def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruning_params=None):
     if original_dataset is None or len(original_dataset) == 0:
         return None
-    if args.pruning_method == 'minhash_lsh':
+    if args.pruning_method == 'minhash_lsh_projection':
+        dim_nodes = original_dataset[0].x.shape[1] if len(original_dataset[0].x.shape) == 2 else 0
+        std_of_threshold = 1
+        mean_of_threshold = 1
+        dim_edges = 0
+        if original_dataset[0].edge_attr is not None:
+            if len(original_dataset[0].edge_attr.shape) == 1:
+                dim_edges = 1
+            else:
+                dim_edges = original_dataset[0].edge_attr.shape[1]
+
+        din = 0
+        if dim_nodes != 0:
+            din += dim_nodes * 2
+        if dim_edges != 0:
+            din += dim_edges
+
+        minhash_lsh = MinHashRandomProj(N=args.num_minhash_funcs,
+                                        random=random,
+                                        sparsity=args.sparsity,
+                                        din=din,
+                                        quantization_step=args.quantization_step)
+
+        prunning_ratio = tg_dataset_prune(tg_dataset=original_dataset,
+                                          method="minhash_lsh_projection",
+                                          minhash=minhash_lsh, )
+        print(f"prunning_ratio = {prunning_ratio}")
+
+    elif args.pruning_method == 'minhash_lsh_thresholding':
         if pruning_params is None:
             dim_nodes = original_dataset[0].x.shape[1] if len(original_dataset[0].x.shape) == 2 else 0
             lsh_num_funcs = args.num_minhash_funcs
@@ -292,7 +321,7 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruni
         print(f"lsh_edges:\n{pruning_params['edges']['lsh']}")
 
         prunning_ratio = tg_dataset_prune(tg_dataset=original_dataset,
-                                          method="minhash_lsh",
+                                          method="minhash_lsh_thresholding",
                                           minhash=pruning_params['minhash'],
                                           lsh_nodes=pruning_params['nodes']['lsh'],
                                           lsh_edges=pruning_params['edges']['lsh'],

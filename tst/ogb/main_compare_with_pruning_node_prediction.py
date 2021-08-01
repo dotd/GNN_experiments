@@ -3,192 +3,19 @@ import time
 import numpy as np
 import pandas as pd
 import torch
-import torch_geometric.transforms as T
-import torch.nn.functional as F
-from sklearn.metrics import f1_score, accuracy_score
-from sklearn.model_selection import train_test_split
 from torch.utils.tensorboard import SummaryWriter
 from torch_geometric.data import NeighborSampler
-from torch_geometric.datasets import Reddit, Amazon, Planetoid
-from tqdm import tqdm
 
-from src.archs.gat_sage import GATSage
-from src.archs.node_prediction import NodeGat, NodeARMA
-from src.archs.sage import SAGE
 from src.utils.csv_utils import prepare_csv
 from src.utils.date_utils import get_time_str
 from src.utils.logging_utils import get_clearml_logger
 from tst.ogb.main_pyg_with_pruning import prune_dataset, get_args
+from tst.ogb.main_with_pruning_node_prediction import get_model, get_dataset, test
 
 start_time = time.time()
 # Created by: Eitan Kosman, BCAI
 
 sage = False
-
-
-def train(epoch, dataset, train_loader, model, device, optimizer, tb_writer):
-    """
-    Performs a training episode.
-
-    @param epoch: the epoch number
-    @param dataset: a pytorch geometric dataset object
-    @param train_loader: dataset sampler for the node prediction task
-    @param model: GNN to use for inference
-    @param device: the device on which we perform the calculations
-    @param optimizer: a pytorch optimizer object for updating the parameters of the GNN
-    """
-    global sage
-
-    model.train()
-
-    pbar = tqdm(total=int(dataset.data.train_mask.sum()))
-    pbar.set_description(f'Epoch {epoch:02d}')
-
-    total_loss = total_correct = 0
-
-    x = dataset.data.x.to(device)
-    y = dataset.data.y.squeeze().to(device)
-    y_pred = torch.tensor([])
-    y_true = torch.tensor([])
-    start_time = time.time()
-
-    if sage:
-        for batch_size, n_id, adjs in train_loader:
-            # `adjs` holds a list of `(edge_index, e_id, size)` tuples.
-            adjs = [adj.to(device) for adj in adjs]
-
-            optimizer.zero_grad()
-            out = model(x[n_id], adjs)
-            loss = F.nll_loss(out, y[n_id[:batch_size]])
-            loss.backward()
-            optimizer.step()
-
-            total_loss += float(loss)
-            total_correct += int(out.argmax(dim=-1).eq(y[n_id[:batch_size]]).sum())
-            pbar.update(batch_size)
-            y_pred = torch.cat([y_pred, out.argmax(dim=-1).detach().cpu()])
-            y_true = torch.cat([y_true, y[n_id[:batch_size]].detach().cpu()])
-
-            if tb_writer is not None:
-                tb_writer.add_scalar('Loss/train_iterations', loss.item(), tb_writer.iteration)
-                tb_writer.iteration += 1
-    else:
-        optimizer.zero_grad()
-        log_logits = model(dataset.data.x.to(device), dataset.data.edge_index.to(device))
-        loss = F.nll_loss(log_logits[dataset.data.train_mask], dataset.data.y[dataset.data.train_mask].to(device))
-        loss.backward()
-        optimizer.step()
-        total_correct += int(log_logits.argmax(dim=-1)[dataset.data.train_mask].detach().cpu().eq(dataset.data.y[dataset.data.train_mask]).sum())
-        total_loss = loss.item()
-        y_pred = log_logits.argmax(dim=-1)[dataset.data.train_mask].detach().cpu()
-        y_true = dataset.data.y[dataset.data.train_mask].detach().cpu()
-
-    pbar.close()
-
-    approx_acc = total_correct / int(dataset.data.train_mask.sum())
-    f1 = f1_score(y_true, y_pred, average='micro')
-
-    if sage:
-        avg_time = (time.time() - start_time) / len(train_loader.dataset)
-        loss = total_loss / len(train_loader)
-    else:
-        avg_time = time.time() - start_time
-        loss = total_loss / len(dataset.data.y)
-
-    return loss, approx_acc, f1, avg_time
-
-
-@torch.no_grad()
-def test(dataset, subgraph_loader, model, device):
-    """
-    Performs a testing episode.
-
-    @param dataset: a pytorch geometric dataset object
-    @param subgraph_loader: dataset sampler for the node prediction task
-    @param model: GNN to use for inference
-    @param device: the device on which we perform the calculations
-    """
-
-    model.eval()
-    start_time = time.time()
-
-    if sage:
-        out = model.inference(dataset.data.x.to(device), subgraph_loader, device)
-    else:
-        out = model(dataset.data.x.to(device), dataset.data.edge_index.to(device))
-
-    y_true = dataset.data.y.cpu().unsqueeze(-1)
-    y_pred = out.argmax(dim=-1, keepdim=True).cpu()
-    results = []
-    for mask in [dataset.data.train_mask, dataset.data.val_mask, dataset.data.test_mask]:
-        results += [accuracy_score(y_true[mask], y_pred[mask])]
-
-    return (*results, (time.time() - start_time) / dataset.data.x.shape[0])
-
-
-def get_dataset(dataset_name):
-    """
-    Retrieves the dataset corresponding to the given name.
-    """
-    print("Getting dataset...")
-    path = 'dataset'
-    if dataset_name == 'reddit':
-        dataset = Reddit(path)
-    elif dataset_name in ['amazon_comp', 'amazon_photo']:
-        dataset = Amazon(path, "Computers", T.NormalizeFeatures()) if dataset_name == 'amazon_comp' else Amazon(path, "Photo", T.NormalizeFeatures())
-        data = dataset.data
-        idx_train, idx_test = train_test_split(list(range(data.x.shape[0])), test_size=0.4, random_state=42)
-        idx_val, idx_test = train_test_split(idx_test, test_size=0.5, random_state=42)
-        data.train_mask = torch.tensor(idx_train)
-        data.val_mask = torch.tensor(idx_val)
-        data.test_mask = torch.tensor(idx_test)
-        dataset.data = data
-    elif dataset_name in ["Cora", "CiteSeer", "PubMed"]:
-        dataset = Planetoid(path, name=dataset_name, split="full", transform=T.NormalizeFeatures())
-    else:
-        raise NotImplementedError
-
-    print("Dataset ready!")
-    return dataset
-
-
-def get_model(num_features, num_classes, arch):
-    global sage
-    """
-    Retrieves the model corresponding to the given name.
-
-    @param num_features: the dimensionality of the node features
-    @param num_classes: number of target labels
-    @param arch: name of the GNN architecture
-    """
-    if arch == 'sage':
-        model = SAGE(in_channels=num_features, out_channels=num_classes)
-        sage = True
-    elif arch == 'gat_sage':
-        model = GATSage(num_features=num_features, num_classes=num_classes)
-        sage = True
-    elif arch == 'gat2':
-        model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2, n_hidden_layers=2)
-        sage = False
-    elif arch == 'gat4':
-        model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2, n_hidden_layers=4)
-        sage = False
-    elif arch == 'gat8':
-        model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2, n_hidden_layers=8)
-        sage = False
-    elif arch == 'gat16':
-        model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2, n_hidden_layers=16)
-        sage = False
-    elif arch == 'gat32':
-        model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2, n_hidden_layers=32)
-        sage = False
-    elif arch == 'arma':
-        model = NodeARMA(num_features=num_features, num_classes=num_classes)
-        sage = False
-    else:
-        raise NotImplementedError
-
-    return model
 
 
 def run(args):

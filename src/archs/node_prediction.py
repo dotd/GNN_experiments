@@ -22,16 +22,26 @@ class NodeGat(nn.Module):
 
 
 class NodeGCN(nn.Module):
-    def __init__(self, num_features, num_classes, num_hidden):
+    def __init__(self, num_features, num_classes, num_hidden, num_layers, apply_log_softmax=True):
         super(NodeGCN, self).__init__()
-        self.conv1 = GCNConv(num_features, num_hidden)
-        self.conv2 = GCNConv(num_hidden, num_classes)
+        self.convs = nn.ModuleList()
+        self.apply_log_softmax = apply_log_softmax
+        for i in range(num_layers):
+            in_features = num_features if i == 0 else num_hidden
+            out_features = num_classes if i == num_layers - 1 else num_hidden
+            self.convs.append(GCNConv(in_features, out_features))
 
     def forward(self, x, edge_index):
-        x = F.relu(self.conv1(x, edge_index))
-        x = F.dropout(x, training=self.training)
-        x = self.conv2(x, edge_index)
-        return F.log_softmax(x, dim=1)
+        for i, conv in enumerate(self.convs):
+            x = conv(x, edge_index)
+            if i != len(self.convs) - 1:
+                x = F.elu(x)
+                x = F.dropout(x)
+
+        if self.apply_log_softmax:
+            return F.log_softmax(x, dim=1)
+
+        return x
 
 
 class NodeARMA(nn.Module):

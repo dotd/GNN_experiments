@@ -1,5 +1,6 @@
 import numpy as np
 
+
 # Taken from
 # https://stackoverflow.com/questions/14533420/can-you-suggest-a-good-minhash-implementation
 
@@ -17,7 +18,8 @@ class MinHash:
         self.max_val = max_val
         self.prime = prime
         if perms is None:
-            self.perms = [(random.randint(0, min(self.max_val, prime)), random.randint(0, min(self.max_val, prime))) for i in range(self.N)]
+            self.perms = [(random.randint(0, min(self.max_val, prime)), random.randint(0, min(self.max_val, prime))) for
+                          i in range(self.N)]
         else:
             self.perms = perms
 
@@ -59,6 +61,7 @@ class MinHash:
             s.append(f"func ({i}={self.perms[i][0]} * val + {self.perms[i][1]}) % {self.prime}")
         return "\n".join(s)
 
+
 def compute_jaacard(s1, s2):
     s1 = set(s1)
     s2 = set(s2)
@@ -67,13 +70,13 @@ def compute_jaacard(s1, s2):
 
 
 def compute_agreement(s1, s2):
-    return np.sum([1 if x==y else 0 for (x, y) in zip(s1,s2)]) / len(s1)
+    return np.sum([1 if x == y else 0 for (x, y) in zip(s1, s2)]) / len(s1)
 
 
 def create_jaacard_table(sets):
     results = list()
     for i1 in range(0, len(sets) - 1):
-        for i2 in range(i1+1, len(sets)):
+        for i2 in range(i1 + 1, len(sets)):
             results.append([i1, i2, compute_jaacard(sets[i1], sets[i2])])
     return results
 
@@ -81,7 +84,7 @@ def create_jaacard_table(sets):
 def create_agreement_table(sets):
     results = list()
     for i1 in range(0, len(sets) - 1):
-        for i2 in range(i1+1, len(sets)):
+        for i2 in range(i1 + 1, len(sets)):
             results.append([i1, i2, compute_agreement(sets[i1], sets[i2])])
     return results
 
@@ -162,4 +165,59 @@ class MinHashRep:
         s.append(f"prime={self.prime}")
         for i, perm in enumerate(self.perms):
             s.append(f"func ({i}={self.perms[i][0]} * val + {self.perms[i][1]}) % {self.prime}")
+        return "\n".join(s)
+
+
+class MinHashRandomProj:
+
+    def __init__(self,
+                 N: int,  # specify the length of each minhash vector
+                 random: np.random.RandomState,
+                 sparsity: int,
+                 din: int,
+                 quantization_step: int = 1,
+                 ):
+        self.N = N
+        self.sparsity = min(sparsity, din)
+        self.quantization_step = quantization_step
+        self.planes = random.randn(N, sparsity)
+        self.biases = random.randn(self.N)
+        self.indices_for_planes = random.randint(low=0, high=din, size=(N, self.sparsity))
+
+    def apply(self, reps, metas):
+        """
+        constructs a subset of the input set 's', consisting of items corresponding to signatures with
+        minimal hash values
+        Args:
+            reps: the representation of each edge
+            metas: a tuple containing the original edge index and the attributes of the items in the original set
+        Returns: a subset of items corresponding of minimal hash values
+        """
+        result = []
+        used_indices = [0] * len(reps)
+        for plane, bias, indices in zip(self.planes, self.biases, self.indices_for_planes):
+            minimal_value = MH()
+            chosen_item_idx = 0
+            for item_idx, (rep, meta) in enumerate(zip(reps, metas)):
+                # assume meta is a real vector
+
+                new_val = np.floor((rep[indices].T @ plane + bias) / self.quantization_step)
+                if new_val < minimal_value.value:
+                    chosen_item_idx = item_idx
+                    minimal_value = MH(new_val, meta, meta)
+
+            if used_indices[chosen_item_idx]:
+                continue
+
+            used_indices[chosen_item_idx] = 1
+            result.append(minimal_value)
+
+        return result
+
+    def __str__(self):
+        s = list()
+        s.append(f"N={self.N}")
+        s.append(f"quantization step={self.quantization_step}")
+        for i, (plane, bias) in enumerate(zip(self.planes, self.biases)):
+            s.append(f"func ({i}={plane} * val + {bias})")
         return "\n".join(s)

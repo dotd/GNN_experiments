@@ -276,7 +276,7 @@ def tg_sample_prune_random(tg_sample, p, random):
 
 
 def tg_dataset_prune_random(tg_dataset, p, random):
-    for tg_sample in tqdm(tg_dataset):
+    for tg_sample in tg_dataset:
         tg_sample_prune_random(tg_sample, p, random)
 
 

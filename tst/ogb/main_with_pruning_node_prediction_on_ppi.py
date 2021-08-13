@@ -129,9 +129,9 @@ def train_gat_ppi(args, tb_writer, clearml_task):
     2. Doing multi-class classification (BCEWithLogitsLoss) and reporting micro-F1 instead of accuracy
     3. Model architecture and hyperparams are a bit different (as reported in the GAT paper)
     """
-    if pathlib.Path(pruning_ratio_path).exists():
-        with open(pruning_ratio_path, 'r') as fp:
-            args.random_pruning_prob = float(fp.read())
+    # if pathlib.Path(pruning_ratio_path).exists():
+    #     with open(pruning_ratio_path, 'r') as fp:
+    #         args.random_pruning_prob = float(fp.read())
 
     # Checking whether you have a strong GPU. Since PPI training requires almost 8 GBs of VRAM
     # I've added the option to force the use of CPU even though you have a GPU on your system (but it's too weak).
@@ -154,11 +154,11 @@ def train_gat_ppi(args, tb_writer, clearml_task):
     #     layer_type=args.layer_type,
     #     log_attention_weights=False  # no need to store attentions, used only in playground.py for visualizations
     # ).to(device)
-    #
+
     gat = NodeGCN(num_features=args.num_features_per_layer[0],
                   num_classes=args.num_features_per_layer[-1],
                   num_hidden=args.num_features_per_layer[1],
-                  num_layers=1,
+                  num_layers=2,
                   apply_log_softmax=False).to(device)
 
     # Step 3: Prepare other training related utilities (loss & optimizer and decorator function)
@@ -213,6 +213,7 @@ def train_gat_ppi(args, tb_writer, clearml_task):
     experiment_logs['keep edges'] = prune_ratio
     experiment_logs['max train accuracy'] = main_loop.best_train_perf
     experiment_logs['max val accuracy'] = main_loop.best_val_perf
+    experiment_logs['test accuracy'] = main_loop.best_test_perf
 
 
 def get_training_args():
@@ -231,8 +232,7 @@ def get_training_args():
     # GAT configs
     # parser.add_argument("--num_of_layers", type=int, help='', default=3)
     parser.add_argument('--gnn', type=str, default='gat',
-                        help='GNN gcn, or gcn-virtual (default: gcn)',
-                        choices=['gcn', 'gat', 'monet', 'pna', 'sage', 'mlp', 'mxmnet'])
+                        help='GNN gcn, or gcn-virtual (default: gcn)',)
     parser.add_argument("--num_of_layers", type=list, help='', default=[4, 4, 6])
     parser.add_argument("--num_features_per_layer", type=list, help='', default=[ppi_num_input_features, 256, 256, ppi_num_classes])
     parser.add_argument("--add_skip_connection", type=bool, help='', default=True)
@@ -247,7 +247,7 @@ def get_training_args():
 
     # Pruning specific params:
     parser.add_argument('--pruning_method', type=str, default='random',
-                        choices=["minhash_lsh_threhsholding", "minhash_lsh_projection", "random"])
+                        choices=["minhash_lsh_thresholding", "minhash_lsh_projection", "random"])
     parser.add_argument('--random_pruning_prob', type=float, default=.5)
     parser.add_argument('--num_minhash_funcs', type=int, default=1)
     parser.add_argument('--sparsity', type=int, default=25)
@@ -302,7 +302,7 @@ def get_training_args():
             tags.append(f'Sparsity: {args.sparsity}')
             tags.append(f'Complement: {args.complement}')
 
-        clearml_logger = get_clearml_logger(project_name="GNN_PPI",
+        clearml_logger = get_clearml_logger(project_name=f"GNN_PPI_{args.gnn}",
                                             task_name=get_time_str(),
                                             tags=tags)
 

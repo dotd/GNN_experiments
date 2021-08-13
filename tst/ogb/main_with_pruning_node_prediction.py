@@ -7,9 +7,10 @@ import torch_geometric.transforms as T
 from sklearn.metrics import f1_score, accuracy_score
 from sklearn.model_selection import train_test_split
 from torch_geometric.data import NeighborSampler
-from torch_geometric.datasets import Reddit, Amazon, Planetoid, PPI
+from torch_geometric.datasets import Reddit, Amazon, Planetoid, PPI, GitHub
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+from os.path import join
 
 from src.archs.gat_sage import GATSage
 from src.archs.node_prediction import NodeGat, NodeARMA, NodeGCN
@@ -128,11 +129,13 @@ def get_dataset(dataset_name):
     Retrieves the dataset corresponding to the given name.
     """
     print("Getting dataset...")
-    path = 'dataset'
+    path = join('dataset', dataset_name)
     if dataset_name == 'reddit':
         dataset = Reddit(path)
     elif dataset_name == 'ppi':
         dataset = PPI(path)
+    elif dataset_name == 'github':
+        dataset = GitHub(path)
     elif dataset_name in ['amazon_comp', 'amazon_photo']:
         dataset = Amazon(path, "Computers", T.NormalizeFeatures()) if dataset_name == 'amazon_comp' else Amazon(path, "Photo", T.NormalizeFeatures())
         data = dataset.data
@@ -143,7 +146,7 @@ def get_dataset(dataset_name):
         data.test_mask = torch.tensor(idx_test)
         dataset.data = data
     elif dataset_name in ["Cora", "CiteSeer", "PubMed"]:
-        dataset = Planetoid(path, name=dataset_name, split="full", transform=T.NormalizeFeatures())
+        dataset = Planetoid(path, name=dataset_name, split="public", transform=T.NormalizeFeatures())
     else:
         raise NotImplementedError
 

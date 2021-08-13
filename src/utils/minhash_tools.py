@@ -137,6 +137,8 @@ class MinHashRep:
         for idx, perm in enumerate(self.perms):
             minimal_value = MH()
             chosen_item_idx = 0
+
+            minhashes = []
             for item_idx, (val_orig, meta) in enumerate(zip(s, metas)):
                 # ensure s is composed of integers
                 if not isinstance(val_orig, int):
@@ -146,15 +148,19 @@ class MinHashRep:
 
                 a, b = perm
                 new_val = (a * val[0] + b) % self.prime
-                if new_val < minimal_value.value:
-                    chosen_item_idx = item_idx
-                    minimal_value = MH(new_val, val[1], meta)
+                minhashes.append((new_val, item_idx, MH(new_val, val[1], meta)))
+                # if new_val < minimal_value.value:
+                #     chosen_item_idx = item_idx
+                #     minimal_value = MH(new_val, val[1], meta)
 
-            if used_indices[chosen_item_idx]:
-                continue
+            minhashes.sort()
+            for val, item_idx, mh in minhashes:
+                if used_indices[item_idx]:
+                    continue
 
-            used_indices[chosen_item_idx] = 1
-            result.append(minimal_value)
+                used_indices[item_idx] = 1
+                result.append(mh)
+                break
 
         return result
 
@@ -198,19 +204,24 @@ class MinHashRandomProj:
         for plane, bias, indices in zip(self.planes, self.biases, self.indices_for_planes):
             minimal_value = MH()
             chosen_item_idx = 0
+            minhashes = []
             for item_idx, (rep, meta) in enumerate(zip(reps, metas)):
                 # assume meta is a real vector
 
                 new_val = np.floor((rep[indices].T @ plane + bias) / self.quantization_step)
-                if new_val < minimal_value.value:
-                    chosen_item_idx = item_idx
-                    minimal_value = MH(new_val, meta, meta)
+                minhashes.append((new_val, item_idx, MH(new_val, meta, meta)))
+                # if new_val < minimal_value.value:
+                #     chosen_item_idx = item_idx
+                #     minimal_value = MH(new_val, meta, meta)
 
-            if used_indices[chosen_item_idx]:
-                continue
+            minhashes.sort()
+            for val, item_idx, mh in minhashes:
+                if used_indices[item_idx]:
+                    continue
 
-            used_indices[chosen_item_idx] = 1
-            result.append(minimal_value)
+                used_indices[item_idx] = 1
+                result.append(mh)
+                break
 
         return result
 

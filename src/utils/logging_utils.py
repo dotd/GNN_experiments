@@ -56,9 +56,18 @@ def log_command():
 
 def compare_clearml_project(seperate_legends, project_name=None, tasks=None, x_name=None, y_name=None):
     tasks = Task.get_tasks(project_name=project_name) if tasks is None else tasks
-    x_y_values = [(float(task.data.hyperparams['General'][x_name].value),
-                   float(task.data.hyperparams['General'][y_name].value),
-                   task.data.hyperparams['Args'][seperate_legends].value) for task in tasks]
+
+    x_y_values = []
+    for task in tasks:
+        try:
+            x_y_values.append((float(task.data.hyperparams['General'][x_name].value),
+                               float(task.data.hyperparams['General'][y_name].value),
+                               task.data.hyperparams['Args'][seperate_legends].value))
+        except:
+            pass
+    # x_y_values = [(float(task.data.hyperparams['General'][x_name].value),
+    #                float(task.data.hyperparams['General'][y_name].value),
+    #                task.data.hyperparams['Args'][seperate_legends].value) for task in tasks]
 
     x_values = [x for x, y, sep in x_y_values]
     y_values = [y for x, y, sep in x_y_values]
@@ -101,6 +110,6 @@ def summary_clearml_project(project_name, x_label, seperate_legends):
 
 
 if __name__ == '__main__':
-    summary_clearml_project(project_name=r'GNN_Cora_gcn',
+    summary_clearml_project(project_name=r'GNN_PPI_gcn2v2',
                             x_label=r'keep edges',
                             seperate_legends='pruning_method')

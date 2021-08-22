@@ -135,7 +135,7 @@ def train_gat_ppi(args, tb_writer, clearml_task):
 
     # Checking whether you have a strong GPU. Since PPI training requires almost 8 GBs of VRAM
     # I've added the option to force the use of CPU even though you have a GPU on your system (but it's too weak).
-    device = torch.device("cuda" if torch.cuda.is_available() and not args.force_cpu else "cpu")
+    device = torch.device(args.device if torch.cuda.is_available() and not args.force_cpu else "cpu")
 
     # Step 1: prepare the data loaders
     data_loader_train, data_loader_val, data_loader_test, prune_ratio = load_graph_data(args, device)
@@ -228,6 +228,7 @@ def get_training_args():
     parser.add_argument("--weight_decay", type=float, help="L2 regularization on model weights", default=0)
     parser.add_argument("--should_test", action='store_true', help='should test the model on the test dataset? (no by default)')
     parser.add_argument("--force_cpu", action='store_true', help='use CPU if your GPU is too small (no by default)')
+    parser.add_argument("--device", type=str, help='')
 
     # GAT configs
     # parser.add_argument("--num_of_layers", type=int, help='', default=3)

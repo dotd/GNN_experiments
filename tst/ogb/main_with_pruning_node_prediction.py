@@ -19,7 +19,6 @@ from src.utils.date_utils import get_time_str
 from src.utils.logging_utils import get_clearml_logger
 from tst.ogb.main_pyg_with_pruning import prune_dataset, get_args
 
-
 # Created by: Eitan Kosman, BCAI
 sage = False
 
@@ -76,7 +75,8 @@ def train(epoch, dataset, train_loader, model, device, optimizer, tb_writer):
         loss = F.nll_loss(log_logits[dataset.data.train_mask], dataset.data.y[dataset.data.train_mask].to(device))
         loss.backward()
         optimizer.step()
-        total_correct += int(log_logits.argmax(dim=-1)[dataset.data.train_mask].detach().cpu().eq(dataset.data.y[dataset.data.train_mask]).sum())
+        total_correct += int(log_logits.argmax(dim=-1)[dataset.data.train_mask].detach().cpu().eq(
+            dataset.data.y[dataset.data.train_mask]).sum())
         total_loss = loss.item()
         y_pred = log_logits.argmax(dim=-1)[dataset.data.train_mask].detach().cpu()
         y_true = dataset.data.y[dataset.data.train_mask].detach().cpu()
@@ -137,7 +137,9 @@ def get_dataset(dataset_name):
     elif dataset_name == 'github':
         dataset = GitHub(path)
     elif dataset_name in ['amazon_comp', 'amazon_photo']:
-        dataset = Amazon(path, "Computers", T.NormalizeFeatures()) if dataset_name == 'amazon_comp' else Amazon(path, "Photo", T.NormalizeFeatures())
+        dataset = Amazon(path, "Computers", T.NormalizeFeatures()) if dataset_name == 'amazon_comp' else Amazon(path,
+                                                                                                                "Photo",
+                                                                                                                T.NormalizeFeatures())
         data = dataset.data
         idx_train, idx_test = train_test_split(list(range(data.x.shape[0])), test_size=0.4, random_state=42)
         idx_val, idx_test = train_test_split(idx_test, test_size=0.5, random_state=42)
@@ -146,7 +148,7 @@ def get_dataset(dataset_name):
         data.test_mask = torch.tensor(idx_test)
         dataset.data = data
     elif dataset_name in ["Cora", "CiteSeer", "PubMed"]:
-        dataset = Planetoid(path, name=dataset_name, split="public", transform=T.NormalizeFeatures())
+        dataset = Planetoid(path, name=dataset_name, split="full", transform=T.NormalizeFeatures())
     else:
         raise NotImplementedError
 
@@ -170,19 +172,24 @@ def get_model(num_features, num_classes, arch):
         model = GATSage(num_features=num_features, num_classes=num_classes)
         sage = True
     elif arch == 'gat2':
-        model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2, n_hidden_layers=2)
+        model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2,
+                        n_hidden_layers=2)
         sage = False
     elif arch == 'gat4':
-        model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2, n_hidden_layers=4)
+        model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2,
+                        n_hidden_layers=4)
         sage = False
     elif arch == 'gat8':
-        model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2, n_hidden_layers=8)
+        model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2,
+                        n_hidden_layers=8)
         sage = False
     elif arch == 'gat16':
-        model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2, n_hidden_layers=16)
+        model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2,
+                        n_hidden_layers=16)
         sage = False
     elif arch == 'gat32':
-        model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2, n_hidden_layers=32)
+        model = NodeGat(num_features=num_features, num_classes=num_classes, num_hidden=8, num_heads=2,
+                        n_hidden_layers=32)
         sage = False
     elif arch == 'arma':
         model = NodeARMA(num_features=num_features, num_classes=num_classes)
@@ -203,7 +210,8 @@ def main():
     tb_writer = SummaryWriter()
     tb_writer.iteration = 0
 
-    device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() and args.device != 'cpu' else torch.device("cpu")
+    device = torch.device(
+        "cuda:" + str(args.device)) if torch.cuda.is_available() and args.device != 'cpu' else torch.device("cpu")
     model = get_model(dataset.data.num_features, dataset.num_classes, args.gnn)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
@@ -218,7 +226,10 @@ def main():
         f"Old number of edges: {old_edge_count}. New one: {edge_count}. Change: {(old_edge_count - edge_count) / old_edge_count * 100}\%")
 
     train_loader = NeighborSampler(data.edge_index, node_idx=data.train_mask,
-                                   sizes=[25, 10], batch_size=1024, shuffle=True,
+                                   sizes=[-1, -1],
+                                   # sizes=[25, 10],
+                                   batch_size=1024,
+                                   shuffle=True,
                                    num_workers=12)
     subgraph_loader = NeighborSampler(data.edge_index, node_idx=None, sizes=[-1],
                                       batch_size=1024, shuffle=False,
@@ -240,8 +251,8 @@ def main():
             tags.append(f'Complement: {args.complement}')
 
         clearml_task = get_clearml_logger(project_name=f"GNN_{args.dataset}_{args.gnn}",
-                                            task_name=get_time_str(),
-                                            tags=tags)
+                                          task_name=get_time_str(),
+                                          tags=tags)
 
     train_times = []
     val_times = []

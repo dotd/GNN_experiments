@@ -62,8 +62,9 @@ def get_args():
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--gnn', type=str, default='gcn',
                         help='GNN gcn, or gcn-virtual (default: gcn)',
-                        choices=['gcn', 'gat', 'monet', 'pna', 'sage', 'gat_sage', 'mlp', 'mxmnet', 'arma', 'gat2',
-                                 'gat4', 'gat8'])
+                        # choices=['gcn', 'gat', 'monet', 'pna', 'sage', 'gat_sage', 'mlp', 'mxmnet', 'arma', 'gat2',
+                        #          'gat4', 'gat8']
+                        )
     parser.add_argument('--drop_ratio', type=float, default=0.5,
                         help='dropout ratio (default: 0.5)')
     parser.add_argument('--num_layer', type=int, default=5,

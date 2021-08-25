@@ -136,6 +136,13 @@ def get_dataset(dataset_name):
         dataset = PPI(path)
     elif dataset_name == 'github':
         dataset = GitHub(path)
+        data = dataset.data
+        idx_train, idx_test = train_test_split(list(range(data.x.shape[0])), test_size=0.4, random_state=42)
+        idx_val, idx_test = train_test_split(idx_test, test_size=0.5, random_state=42)
+        data.train_mask = torch.tensor(idx_train)
+        data.val_mask = torch.tensor(idx_val)
+        data.test_mask = torch.tensor(idx_test)
+        dataset.data = data
     elif dataset_name in ['amazon_comp', 'amazon_photo']:
         dataset = Amazon(path, "Computers", T.NormalizeFeatures()) if dataset_name == 'amazon_comp' else Amazon(path,
                                                                                                                 "Photo",
@@ -196,6 +203,9 @@ def get_model(num_features, num_classes, arch):
         sage = False
     elif arch == 'gcn':
         model = NodeGCN(num_features=num_features, num_hidden=32, num_classes=num_classes, num_layers=1)
+        sage = False
+    elif arch == 'github_gat':
+        model = NodeGat(num_features=num_features, num_hidden=32, num_classes=num_classes, n_hidden_layers=2, num_heads=1)
         sage = False
     else:
         raise NotImplementedError

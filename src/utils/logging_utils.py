@@ -63,7 +63,8 @@ def compare_clearml_project(seperate_legends, project_name=None, tasks=None, x_n
             x_y_values.append((float(task.data.hyperparams['General'][x_name].value),
                                float(task.data.hyperparams['General'][y_name].value),
                                task.data.hyperparams['Args'][seperate_legends].value))
-        except:
+        except Exception as e:
+            print(e)
             pass
     # x_y_values = [(float(task.data.hyperparams['General'][x_name].value),
     #                float(task.data.hyperparams['General'][y_name].value),
@@ -109,7 +110,38 @@ def summary_clearml_project(project_name, x_label, seperate_legends):
                                     xaxis=x_label, yaxis=y_label)
 
 
+def get_pruning_results(project_name, pruning_methods, y_label):
+    print("Retrieving tasks...")
+    tasks = Task.get_tasks(project_name=project_name)
+    print('Done')
+
+    # logger = get_clearml_logger(project_name, 'Summary').logger
+
+    print(f"Generating graph comparison for {y_label}")
+    x_values, y_values, labels = compare_clearml_project(pruning_methods,
+                                                         project_name=project_name,
+                                                         tasks=tasks,
+                                                         x_name='keep edges',
+                                                         y_name=y_label)
+    labeled_x, labeled_y, unique_labels = seperate_labels(x_values, y_values, labels)
+    for label in unique_labels:
+        print(f'======================= {label} =======================')
+        x = np.array(labeled_x[label])
+        y = np.array(labeled_y[label])
+        order = np.argsort(x)
+        x = x[order]
+        y = y[order]
+        for x_, y_ in zip(x, y):
+            print(f'({x_}, {y_})')
+
+        print()
+
+
 if __name__ == '__main__':
-    summary_clearml_project(project_name=r'GNN_PPI_gcn2v2',
-                            x_label=r'keep edges',
-                            seperate_legends='pruning_method')
+    # summary_clearml_project(project_name=r'GNN_Cora_gat_sage',
+    #                         x_label=r'keep edges',
+    #                         seperate_legends='pruning_method')
+
+    get_pruning_results(project_name=r'GNN_PPI_gat',
+                        pruning_methods='pruning_method',
+                        y_label='test accuracy')

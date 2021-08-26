@@ -207,6 +207,9 @@ def get_model(num_features, num_classes, arch):
     elif arch == 'github_gat':
         model = NodeGat(num_features=num_features, num_hidden=32, num_classes=num_classes, n_hidden_layers=2, num_heads=1)
         sage = False
+    elif arch == 'reddit_gat':
+        model = NodeGat(num_features=num_features, num_hidden=32, num_classes=num_classes, n_hidden_layers=2, num_heads=1)
+        sage = False
     else:
         raise NotImplementedError
 
@@ -236,9 +239,10 @@ def main():
         f"Old number of edges: {old_edge_count}. New one: {edge_count}. Change: {(old_edge_count - edge_count) / old_edge_count * 100}\%")
 
     train_loader = NeighborSampler(data.edge_index, node_idx=data.train_mask,
-                                   sizes=[-1, -1],
-                                   # sizes=[25, 10],
-                                   batch_size=1024,
+                                   # sizes=[-1, -1], # citations
+                                   # sizes=[-1, 10], # reddit
+                                   sizes=[25, 10], # default
+                                   batch_size=args.batch_size,
                                    shuffle=True,
                                    num_workers=12)
     subgraph_loader = NeighborSampler(data.edge_index, node_idx=None, sizes=[-1],

@@ -142,6 +142,6 @@ if __name__ == '__main__':
     #                         x_label=r'keep edges',
     #                         seperate_legends='pruning_method')
 
-    get_pruning_results(project_name=r'GNN_PPI_gat',
+    get_pruning_results(project_name=r'GNN_github_github_gat',
                         pruning_methods='pruning_method',
-                        y_label='test accuracy')
+                        y_label='max test accuracy')

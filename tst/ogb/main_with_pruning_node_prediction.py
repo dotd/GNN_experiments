@@ -239,9 +239,9 @@ def main():
         f"Old number of edges: {old_edge_count}. New one: {edge_count}. Change: {(old_edge_count - edge_count) / old_edge_count * 100}\%")
 
     train_loader = NeighborSampler(data.edge_index, node_idx=data.train_mask,
-                                   # sizes=[-1, -1], # citations
-                                   # sizes=[-1, 10], # reddit
-                                   sizes=[25, 10], # default
+                                   # sizes=[-1, -1],  # citations
+                                   sizes=[-1, 10],  # reddit
+                                   # sizes=[25, 10],  # default
                                    batch_size=args.batch_size,
                                    shuffle=True,
                                    num_workers=12)

@@ -49,8 +49,8 @@ def get_args():
 
     # Pruning specific params:
     parser.add_argument('--pruning_method', type=str, default='random', )
-    parser.add_argument('--random_pruning_prob', type=float, default=.5)
-    parser.add_argument('--lr', type=float, default=0.001)
+    parser.add_argument('--random_pruning_prob', type=float, default=0.2)
+    parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--wd', type=float, default=0, help='Weight decay value.')
     parser.add_argument('--num_minhash_funcs', type=int, default=1)
     parser.add_argument('--sparsity', type=int, default=8)
@@ -81,12 +81,12 @@ def get_args():
     parser.add_argument('--max_nodes', type=int, default=60, help='')
     parser.add_argument('--dim_nodes', type=int, default=10, help='')
     parser.add_argument('--dim_edges', type=int, default=40, help='')
-    parser.add_argument('--connectivity_rate', type=float, default=0.25,
+    parser.add_argument('--connectivity_rate', type=float, default=0.2,
                         help='how many edges are connected to each node, normalized')
     parser.add_argument('--centers_nodes_std', type=float, default=0.2, help='the std of the nodes representation')
     parser.add_argument('--centers_edges_std', type=float, default=0.2, help='the std of the edges representation')
 
-    parser.add_argument('--node_additive_noise_std', type=float, default=0.1,
+    parser.add_argument('--node_additive_noise_std', type=float, default=0.25,
                         help='the std of the nodes noise, per sample')
     parser.add_argument('--edge_additive_noise_std', type=float, default=0.1,
                         help='the std of the edges noise, per sample')
@@ -106,11 +106,11 @@ def get_args():
     return parser.parse_args()
 
 
-def get_model(arch, dim_nodes, num_classes, num_hidden=20):
+def get_model(arch, dim_nodes, num_classes, num_hidden=40):
     if arch == 'gcn':
         model = GCN(hidden_channels=num_hidden, in_size=dim_nodes, out_size=num_classes, conv_ctr=GCNConv)
     elif arch == 'gat':
-        model = GAT(dim_nodes, num_classes, heads=2, num_hidden=num_hidden)
+        model = GAT(dim_nodes, num_classes, heads=16, num_hidden=num_hidden)
 
     return model
 

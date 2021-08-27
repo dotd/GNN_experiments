@@ -127,8 +127,8 @@ class GAT(torch.nn.Module):
         torch.manual_seed(12345)
         super(GAT, self).__init__()
         self.conv1 = GATConv(dim_nodes, num_hidden, heads=heads)
-        self.conv2 = GATConv(num_hidden*heads, num_hidden, heads=2)
-        self.conv3 = GATConv(num_hidden*heads, num_hidden, heads=2, concat=False)
+        self.conv2 = GATConv(num_hidden*heads, num_hidden, heads=heads)
+        self.conv3 = GATConv(num_hidden*heads, num_hidden, heads=heads, concat=False)
         self.lin = Linear(num_hidden, num_classes)
 
     def forward(self, x, edge_index, batch):

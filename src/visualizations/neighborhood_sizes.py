@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torch_geometric.transforms as T
 from sklearn.model_selection import train_test_split
-from torch_geometric.datasets import Reddit, PPI, Amazon, Planetoid, Flickr, GitHub
+from torch_geometric.datasets import Reddit, PPI, Amazon, Planetoid, Flickr, GitHub, ZINC, QM9
 from torch_geometric.utils import to_networkx
 
 from src.utils.graph_prune_utils import tg_dataset_prune
@@ -25,6 +25,10 @@ def get_dataset(dataset_name):
         dataset = Reddit(path)
     elif dataset_name == 'flickr':
         dataset = Flickr(path)
+    elif dataset_name == 'zinc':
+        dataset = ZINC(root='dataset', subset=True, split='train')
+    elif dataset_name == 'QM9':
+        dataset = QM9(root='dataset')
     elif dataset_name == 'github':
         dataset = GitHub(path)
     elif dataset_name == 'ppi':

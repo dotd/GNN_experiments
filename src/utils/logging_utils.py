@@ -142,6 +142,6 @@ if __name__ == '__main__':
     #                         x_label=r'keep edges',
     #                         seperate_legends='pruning_method')
 
-    get_pruning_results(project_name=r'GNN_PubMed_gat_sage',
+    get_pruning_results(project_name=r'GNN_synthetic_pruning',
                         pruning_methods='pruning_method',
                         y_label='time/val')

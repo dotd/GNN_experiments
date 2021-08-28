@@ -213,11 +213,12 @@ def main(args):
         tags = [
             f'Pruning method: {args.pruning_method}',
             f'Architecture: {args.gnn}',
+            f'dim_edges:{args.dim_edges}',
         ]
         pruning_param_name = 'num_minhash_funcs' if 'minhash_lsh' in args.pruning_method else 'random_pruning_prob'
         pruning_param = args.num_minhash_funcs if 'minhash_lsh' in args.pruning_method else args.random_pruning_prob
         tags.append(f'{pruning_param_name}: {pruning_param}')
-        clearml_logger = get_clearml_logger(project_name="GNN_synthetic_pruning",
+        clearml_logger = get_clearml_logger(project_name="GNN_synthetic_pruning_dimensionality",
                                             task_name=get_time_str(),
                                             tags=tags)
 

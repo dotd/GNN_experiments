@@ -186,7 +186,7 @@ class MinHashRandomProj:
         self.N = N
         self.sparsity = min(sparsity, din)
         self.quantization_step = quantization_step
-        self.planes = random.randn(N, sparsity)
+        self.planes = random.randn(N, self.sparsity)
         self.biases = random.randn(self.N)
         self.indices_for_planes = random.randint(low=0, high=din, size=(N, self.sparsity))
 

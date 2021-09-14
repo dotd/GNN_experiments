@@ -158,7 +158,7 @@ def train_gat_ppi(args, tb_writer, clearml_task):
     gat = NodeGCN(num_features=args.num_features_per_layer[0],
                   num_classes=args.num_features_per_layer[-1],
                   num_hidden=args.num_features_per_layer[1],
-                  num_layers=2,
+                  num_layers=3,
                   apply_log_softmax=False).to(device)
 
     # Step 3: Prepare other training related utilities (loss & optimizer and decorator function)

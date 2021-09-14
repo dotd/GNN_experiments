@@ -58,8 +58,8 @@ def get_main_loop(args, gat, sigmoid_cross_entropy_loss, optimizer, patience_per
 
             # Note: [0] just extracts the node_features part of the data (index 1 contains the edge_index)
             # shape = (N, C) where N is the number of nodes in the batch and C is the number of classes (121 for PPI)
-            nodes_unnormalized_scores = gat(node_features, edge_index)
-            # nodes_unnormalized_scores = gat((node_features, edge_index))[0]
+            # nodes_unnormalized_scores = gat(node_features, edge_index)
+            nodes_unnormalized_scores = gat((node_features, edge_index))[0]
 
             loss = sigmoid_cross_entropy_loss(nodes_unnormalized_scores, gt_node_labels)
 
@@ -144,22 +144,22 @@ def train_gat_ppi(args, tb_writer, clearml_task):
         fp.write(str(prune_ratio))
 
     # Step 2: prepare the model
-    # gat = GAT(
-    #     num_of_layers=args.num_of_layers,
-    #     num_heads_per_layer=args.num_heads_per_layer,
-    #     num_features_per_layer=args.num_features_per_layer,
-    #     add_skip_connection=args.add_skip_connection,
-    #     bias=args.bias,
-    #     dropout=args.dropout,
-    #     layer_type=args.layer_type,
-    #     log_attention_weights=False  # no need to store attentions, used only in playground.py for visualizations
-    # ).to(device)
+    gat = GAT(
+        num_of_layers=args.num_of_layers,
+        num_heads_per_layer=args.num_heads_per_layer,
+        num_features_per_layer=args.num_features_per_layer,
+        add_skip_connection=args.add_skip_connection,
+        bias=args.bias,
+        dropout=args.dropout,
+        layer_type=args.layer_type,
+        log_attention_weights=False  # no need to store attentions, used only in playground.py for visualizations
+    ).to(device)
 
-    gat = NodeGCN(num_features=args.num_features_per_layer[0],
-                  num_classes=args.num_features_per_layer[-1],
-                  num_hidden=args.num_features_per_layer[1],
-                  num_layers=3,
-                  apply_log_softmax=False).to(device)
+    # gat = NodeGCN(num_features=args.num_features_per_layer[0],
+    #               num_classes=args.num_features_per_layer[-1],
+    #               num_hidden=args.num_features_per_layer[1],
+    #               num_layers=3,
+    #               apply_log_softmax=False).to(device)
 
     # Step 3: Prepare other training related utilities (loss & optimizer and decorator function)
     loss_fn = nn.BCEWithLogitsLoss(reduction='mean')

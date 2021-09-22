@@ -2,7 +2,7 @@ import copy
 import numpy as np
 import networkx as nx
 import torch
-
+from tqdm import tqdm
 
 """
 Convetion:
@@ -10,6 +10,7 @@ Convetion:
 Matrix [y][x]
 list [y,x]
 """
+
 
 class GraphSample:
 
@@ -26,15 +27,42 @@ class GraphSample:
         self.num_edges = len(self.edges_list[0])
 
     def remove_nodes(self, nodes_list):
-        np.delete(self.edges_full, nodes_list, axis=0)
-        np.delete(self.edges_full, nodes_list, axis=1)
-        np.delete(self.nodes_vecs, nodes_list, axis=0)
+        old_node_names = [idx for idx in np.arange(self.num_nodes) if idx not in nodes_list]
+        self.edges_full = np.delete(self.edges_full, nodes_list, axis=0)
+        self.edges_full = np.delete(self.edges_full, nodes_list, axis=1)
+        self.nodes_vecs = np.delete(self.nodes_vecs, nodes_list, axis=0)
+
+        columns_to_remove = np.array([])
         self.num_nodes -= len(nodes_list)
+        new_node_names = [idx for idx in np.arange(self.num_nodes)]
+
+        for node in nodes_list:
+            node_idx_from, = np.where(self.edges_list[0] == node)
+            node_idx_to, = np.where(self.edges_list[1] == node)
+            columns_to_remove = np.concatenate([columns_to_remove, node_idx_from, node_idx_to])
+
+        self.edges_vecs = np.delete(self.edges_vecs, columns_to_remove.astype(int), axis=0)
+        self.edges_list = np.delete(self.edges_list, columns_to_remove.astype(int), axis=1)
+        self.edges_list = self.rename_nodes_in_edge_list(old_node_names, new_node_names, self.edges_list)
+
+    def rename_nodes_in_edge_list(self, sources, targets, edge_list):
+        new_edges_list = edge_list.copy()
+
+        for source, target in zip(sources, targets):
+            # the value stored in idx is the old index
+            new_edges_list[self.edges_list == source] = target
+
+        return new_edges_list
 
     def scramble(self, idx):
         self.edges_full = self.edges_full[idx, :]
         self.edges_full = self.edges_full[:, idx]
         self.nodes_vecs = self.nodes_vecs[idx, :]
+
+        # need to create a copy in order to not override the new changes
+        new_edges_list = self.edges_list.copy()
+
+        self.edges_list = self.rename_nodes_in_edge_list(sources=idx, targets=np.arange(len(idx)), edge_list=self.edges_list)
 
     def get_edges_full(self):
         if self.edges_full is None:
@@ -57,7 +85,7 @@ class GraphSample:
         s = list()
         for y in range(self.num_nodes):
             for x in range(self.num_nodes):
-                s.append("0" if self.get_edges_full()[y][x]==0 else "1")
+                s.append("0" if self.get_edges_full()[y][x] == 0 else "1")
             s.append("\t")
             s.append(f"{' '.join([f'{num:+2.4f}' for num in self.nodes_vecs[y]])}")
             s.append("\n")
@@ -83,10 +111,11 @@ def graph_sample_to_networkx(graph_sample):
 
 
 def graph_sample_dataset_to_networkx(graph_sample_dataset):
+    print("Transforming graph samples samples to networkx")
     samples_networkx = list()
     centers_networkx = list()
     # Transform the samples
-    for sample in graph_sample_dataset.samples:
+    for sample in tqdm(graph_sample_dataset.samples):
         sample_networkx = graph_sample_to_networkx(sample)
         samples_networkx.append(sample_networkx)
     # Transform the centers
@@ -144,7 +173,7 @@ def edges_mat_to_list(mat):
     for y in range(N):
         for x in range(N):
             if mat[y][x] != 0:
-               lst.append([y, x])
+                lst.append([y, x])
     return np.array(lst).T
 
 
@@ -162,7 +191,7 @@ def create_centers(num_classes,
 
     for c in range(num_classes):
         # decide num of nodes
-        num_nodes = random.randint(min_nodes, max_nodes+1)
+        num_nodes = random.randint(min_nodes, max_nodes + 1)
 
         edges_full = np.zeros(shape=(num_nodes * num_nodes, 1))
         edges_full[:int(num_nodes * num_nodes * connectivity_rate)] = 1
@@ -213,6 +242,10 @@ def scramble_graph(graph_sample, random):
     graph_sample.scramble(idx)
 
 
+# def add_nodes(sample):
+#     nodes_vecs = random.normal(size=(num_nodes, dim_nodes)) * centers_nodes_std
+
+
 def generate_graphs_dataset(num_samples,
                             num_classes,
                             min_nodes,
@@ -228,6 +261,7 @@ def generate_graphs_dataset(num_samples,
                             nodes_order_scramble_flag,
                             node_additive_noise_std,
                             edge_additive_noise_std,
+                            noise_add_node,
                             random):
     # Generate classes centers
     centers = create_centers(num_classes,
@@ -241,13 +275,12 @@ def generate_graphs_dataset(num_samples,
                              centers_edges_std=centers_edges_std,
                              random=random)
     samples = list()
-    labels = list()
+    labels = np.random.randint(num_classes, size=num_samples)
 
     # Create samples and labels
     for i in range(num_samples):
         # get a class
-        c = random.randint(num_classes)
-        labels.append(c)
+        c = labels[i]
 
         # Get the sample
         sample = copy.deepcopy(centers[c])
@@ -270,6 +303,9 @@ def generate_graphs_dataset(num_samples,
         if nodes_order_scramble_flag:
             scramble_graph(sample, random)
         # print(f"scramble_graph=\n{center}")
+
+        # add random nodes
+        # add_nodes(sample)
 
         samples.append(sample)
 

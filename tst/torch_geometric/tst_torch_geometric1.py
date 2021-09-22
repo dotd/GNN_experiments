@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import pickle
 import torch
@@ -91,21 +93,22 @@ def split_to_train_test(dataset):
 
 class GCN(torch.nn.Module):
 
-    def __init__(self, hidden_channels, in_size, out_size):
+    def __init__(self, hidden_channels, in_size, out_size, conv_ctr=GCNConv):
         super(GCN, self).__init__()
         torch.manual_seed(12345)
-        self.conv1 = GCNConv(in_size, hidden_channels)
-        self.conv2 = GCNConv(hidden_channels, hidden_channels)
-        self.conv3 = GCNConv(hidden_channels, hidden_channels)
+        self.conv1 = conv_ctr(in_size, hidden_channels)
+        self.conv2 = conv_ctr(hidden_channels, hidden_channels)
+        self.conv3 = conv_ctr(hidden_channels, hidden_channels)
         self.lin = Linear(hidden_channels, out_size)
 
     def forward(self, x, edge_index, batch):
         # 1. Obtain node embeddings
         x = self.conv1(x, edge_index)
-        x = x.relu()
+        x = F.relu(x)
         x = self.conv2(x, edge_index)
-        x = x.relu()
+        x = F.relu(x)
         x = self.conv3(x, edge_index)
+        x = F.relu(x)
 
         # 2. Readout layer
         x = global_mean_pool(x, batch)  # [batch_size, hidden_channels]
@@ -117,28 +120,35 @@ class GCN(torch.nn.Module):
         return x
 
 
-def train(model, train_loader, lr=0.01):
+def train(model, train_loader, lr=0.01, log_every=50):
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = torch.nn.CrossEntropyLoss()
-
-    for data in train_loader:  # Iterate in batches over the training dataset.
+    start_time = time.time()
+    for batch_i, data in enumerate(train_loader):  # Iterate in batches over the training dataset.
         out = model(data.x, data.edge_index, data.batch)  # Perform a single forward pass.
         loss = criterion(out, data.y)  # Compute the loss.
         loss.backward()  # Derive gradients.
         optimizer.step()  # Update parameters based on gradients.
         optimizer.zero_grad()  # Clear gradients.
+        if batch_i % log_every == 0:
+            print(f"Batch {batch_i + 1} / {len(train_loader)} | {(time.time() - start_time) / (batch_i + 1)} sec / iteration")
+
+    return (time.time() - start_time) / len(train_loader)
 
 
-def func_test(model, loader):
+def func_test(model, loader, log_every=50):
     model.eval()
 
     correct = 0
-    for data in loader:  # Iterate in batches over the training/test dataset.
+    start_time = time.time()
+    for batch_i, data in enumerate(loader):  # Iterate in batches over the training/test dataset.
         out = model(data.x, data.edge_index, data.batch)
         pred = out.argmax(dim=1)  # Use the class with highest probability.
         correct += int((pred == data.y).sum())  # Check against ground-truth labels.
-    return correct / len(loader.dataset)  # Derive ratio of correct predictions.
+        if batch_i % log_every == 0:
+            print(f"Batch {batch_i + 1} / {len(loader)} | {(time.time() - start_time) / (batch_i + 1)} sec / iteration")
+    return correct / len(loader.dataset), (time.time() - start_time) / len(loader)
 
 
 def sparsify_using_lsh():

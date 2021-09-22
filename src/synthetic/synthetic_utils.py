@@ -1,6 +1,7 @@
 import torch
 import torch_geometric as tg
 from torch_geometric.utils.convert import from_networkx
+from tqdm import tqdm
 
 
 def transform_networkx_sample_to_torch_geometric_data(networkx_sample, label):
@@ -19,17 +20,17 @@ def transform_graph_sample_to_torch_geometric_data(graph_sample, label):
 
 
 def transform_networkx_to_torch_geometric_dataset(networkx_samples, labels):
-    tg_dataset = list()
-    for idx in range(len(networkx_samples)):
-        network_sample = networkx_samples[idx]
-        label = labels[idx]
-        tg_dataset.append(transform_networkx_sample_to_torch_geometric_data(network_sample, label))
+    print("Transforming networkx samples to PyG")
+    tg_dataset = [transform_networkx_sample_to_torch_geometric_data(networkx_sample=networkx_samples[idx],
+                                                                    label=labels[idx])
+                  for idx in tqdm(range(len(networkx_samples)))]
     return tg_dataset
 
 
 def transform_dataset_to_torch_geometric_dataset(graph_samples, labels):
+    print("Transforming graph samples samples to PyG")
     tg_dataset = list()
-    for idx in range(len(graph_samples)):
+    for idx in tqdm(range(len(graph_samples))):
         graph_sample = graph_samples[idx]
         label = labels[idx]
         tg_dataset.append(transform_graph_sample_to_torch_geometric_data(graph_sample, label))

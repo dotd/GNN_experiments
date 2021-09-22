@@ -5,6 +5,7 @@ import torch.nn.functional as F
 
 class NodeGat(nn.Module):
     def __init__(self, num_features, num_classes, num_hidden, num_heads, n_hidden_layers=2, dropout=0.5):
+
         super(NodeGat, self).__init__()
         self.conv1 = GATConv(num_features, num_hidden, num_heads)
         self.conv2 = nn.ModuleList([GATConv(num_hidden * num_heads, num_hidden, num_heads) for _ in range(n_hidden_layers - 1)])
@@ -18,6 +19,7 @@ class NodeGat(nn.Module):
         for l in self.conv2:
             x = l(x, edge_index)
             x = F.leaky_relu(x, 0.2)
+
         x = self.clf(x)
         return F.log_softmax(x, dim=1)
 

@@ -19,4 +19,5 @@ def prepare_csv(func):
             df.to_csv(csv_file, index=False)
         func(args)
 
+
     return inner

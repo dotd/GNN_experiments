@@ -17,6 +17,7 @@ start_time = time.time()
 
 import src.synthetic.random_graph_dataset as rgd
 from tst.torch_geometric.tst_torch_geometric1 import GCN, GAT
+
 import src.synthetic.synthetic_utils as su
 from tst.torch_geometric.tst_torch_geometric1 import train, func_test
 from torch_geometric.data import DataLoader
@@ -49,8 +50,9 @@ def get_args():
 
     # Pruning specific params:
     parser.add_argument('--pruning_method', type=str, default='random', )
-    parser.add_argument('--random_pruning_prob', type=float, default=0.2)
-    parser.add_argument('--lr', type=float, default=0.01)
+    parser.add_argument('--random_pruning_prob', type=float, default=.5)
+    parser.add_argument('--lr', type=float, default=0.001)
+
     parser.add_argument('--wd', type=float, default=0, help='Weight decay value.')
     parser.add_argument('--num_minhash_funcs', type=int, default=1)
     parser.add_argument('--sparsity', type=int, default=8)
@@ -60,6 +62,7 @@ def get_args():
     # logging params:
     parser.add_argument('--exps_dir', type=str, help='Target directory to save logging files')
     parser.add_argument('--csv_file', type=str, default='synthetic_results_tmp.csv')
+
     parser.add_argument('--enable_clearml_logger',
                         default=False,
                         action='store_true',
@@ -82,11 +85,13 @@ def get_args():
     parser.add_argument('--dim_nodes', type=int, default=10, help='')
     parser.add_argument('--dim_edges', type=int, default=40, help='')
     parser.add_argument('--connectivity_rate', type=float, default=0.2,
+
                         help='how many edges are connected to each node, normalized')
     parser.add_argument('--centers_nodes_std', type=float, default=0.2, help='the std of the nodes representation')
     parser.add_argument('--centers_edges_std', type=float, default=0.2, help='the std of the edges representation')
 
     parser.add_argument('--node_additive_noise_std', type=float, default=0.25,
+
                         help='the std of the nodes noise, per sample')
     parser.add_argument('--edge_additive_noise_std', type=float, default=0.1,
                         help='the std of the edges noise, per sample')
@@ -114,7 +119,7 @@ def get_model(arch, dim_nodes, num_classes, num_hidden=40):
 
     return model
 
-
+  
 def tst_classify_networkx_synthetic_tg(
         args,
         num_samples=1000,
@@ -171,6 +176,7 @@ def tst_classify_networkx_synthetic_tg(
 
     model = get_model(arch=args.gnn, dim_nodes=dim_nodes, num_classes=num_classes).to(args.device)
     test_acc, _ = func_test(args, model, test_loader)
+
     print(f'{time.time() - start_time:.4f} Test Acc: {test_acc:.4f}')
 
     best_train = 0
@@ -182,6 +188,7 @@ def tst_classify_networkx_synthetic_tg(
         train_times.append(avg_time_train)
         train_acc, _ = func_test(args, model, train_loader)
         test_acc, avg_time_test = func_test(args, model, test_loader)
+
         test_times.append(avg_time_test)
         best_train = max(best_train, train_acc)
         best_test = max(best_test, test_acc)
@@ -198,15 +205,15 @@ def tst_classify_networkx_synthetic_tg(
     return graph_dataset, prunning_ratio, best_train, best_test, np.mean(train_times), np.mean(test_times)
 
 
-@prepare_csv
+
 def main(args):
     vals = dict()
     csv_file = args.csv_file
-
     """
     Pruning with LSH
     """
     args.pruning_method = 'minhash_lsh_projection'
+
     tb_writer = None
     if args.enable_clearml_logger:
         tb_writer = SummaryWriter(log_dir=None)
@@ -219,6 +226,7 @@ def main(args):
         pruning_param = args.num_minhash_funcs if 'minhash_lsh' in args.pruning_method else args.random_pruning_prob
         tags.append(f'{pruning_param_name}: {pruning_param}')
         clearml_logger = get_clearml_logger(project_name="GNN_synthetic_pruning_dimensionality",
+
                                             task_name=get_time_str(),
                                             tags=tags)
 
@@ -249,6 +257,7 @@ def main(args):
         ]
         pruning_param_name = 'num_minhash_funcs' if 'minhash_lsh' in args.pruning_method else 'random_pruning_prob'
         pruning_param = args.num_minhash_funcs if 'minhash_lsh' in args.pruning_method else args.random_pruning_prob
+
         tags.append(f'{pruning_param_name}: {pruning_param}')
         clearml_logger = get_clearml_logger(project_name="GNN_synthetic_pruning",
                                             task_name=get_time_str(),
@@ -266,6 +275,7 @@ def main(args):
     vals['random time train'] = avg_time_train
     vals['random time test'] = avg_time_test
     vals['architecture'] = args.gnn
+
     df = pd.read_csv(csv_file)
     df = df.append(vals, ignore_index=True)
     df.to_csv(csv_file, index=False)

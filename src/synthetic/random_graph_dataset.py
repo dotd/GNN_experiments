@@ -264,6 +264,7 @@ def generate_graphs_dataset(num_samples,
                             noise_add_node,
                             random,
                             **kwargs):
+
     # Generate classes centers
     centers = create_centers(num_classes,
                              min_nodes,

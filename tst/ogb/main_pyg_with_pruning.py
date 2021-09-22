@@ -61,10 +61,7 @@ def get_args():
     parser.add_argument('--device', type=str, default=0,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--gnn', type=str, default='gcn',
-                        help='GNN gcn, or gcn-virtual (default: gcn)',
-                        # choices=['gcn', 'gat', 'monet', 'pna', 'sage', 'gat_sage', 'mlp', 'mxmnet', 'arma', 'gat2',
-                        #          'gat4', 'gat8']
-                        )
+                        help='GNN gcn, or gcn-virtual (default: gcn)', )
     parser.add_argument('--drop_ratio', type=float, default=0.5,
                         help='dropout ratio (default: 0.5)')
     parser.add_argument('--num_layer', type=int, default=5,
@@ -100,6 +97,7 @@ def get_args():
     parser.add_argument('--sparsity', type=int, default=25)
     parser.add_argument("--complement", action='store_true', help="")
     parser.add_argument("--quantization_step", type=int, default=1, help="")
+
 
     # dataset specific params:
     parser.add_argument('--max_seq_len', type=int, default=5,

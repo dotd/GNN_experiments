@@ -8,17 +8,16 @@ def prepare_csv(func):
         if not path.exists(csv_file):
 
             df = pd.DataFrame(columns=[
+                'pruning method',
+                'architecture',
                 'keep edges',
-                'minhash train',
-                'minhash test',
-                'minhash time train',
-                'minhash time test',
-                'random train',
-                'random test',
-                'random time train',
-                'random time test',
+                'train acc',
+                'test acc',
+                'train time',
+                'test time',
                 ])
             df.to_csv(csv_file, index=False)
-        func(args, csv_file)
+        func(args)
+
 
     return inner

@@ -30,7 +30,7 @@ def train(model, dataset, device, loader, optimizer, cls_criterion, tb_writer=No
                     loss = cls_criterion(pred.to(torch.float32),
                                          batch.y.view(-1, ))
                 elif dataset.name in ['zinc', 'QM9']:
-                    loss = cls_criterion(pred, batch.y)
+                    loss = cls_criterion(pred.flatten(), batch.y.flatten())
                 elif dataset.name in ['ogbg-molhiv', 'ogbg-molpcba']:
                     # ignore nan targets (unlabeled) when computing training loss.
                     is_labeled = batch.y == batch.y
@@ -47,9 +47,9 @@ def train(model, dataset, device, loader, optimizer, cls_criterion, tb_writer=No
 
     end_time = time.time()
 
-    iterations_per_second = len(loader) / (end_time - start_time)
+    seconds_per_iter = (end_time - start_time) / len(loader)
 
-    return iterations_per_second
+    return seconds_per_iter
 
 
 def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str, return_avg_time: bool = False):
@@ -72,7 +72,7 @@ def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str, re
                 with torch.no_grad():
                     pred = model(batch)
 
-                # ogbg-code is a multi-labelling task, so it needs to be treated diffrerently
+                # ogbg-code is a multi-labelling task, so it needs to be treated differently
                 if dataset_name == 'ogbg-code2':
                     mat = []
                     for i in range(len(pred)):
@@ -100,7 +100,7 @@ def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str, re
 
     end_time = time.time()
 
-    iterations_per_second = len(loader) / (end_time - start_time)
+    seconds_per_iter = (end_time - start_time) / len(loader)
 
     if dataset_name == 'ogbg-code2':
         input_dict = {"seq_ref": y_true, "seq_pred": y_pred}
@@ -110,7 +110,7 @@ def evaluate(model, device, loader, evaluator, arr_to_seq, dataset_name: str, re
         input_dict = {"y_true": y_true, "y_pred": y_pred}
 
     if return_avg_time:
-        return evaluator.eval(input_dict), iterations_per_second
+        return evaluator.eval(input_dict), seconds_per_iter
     else:
         return evaluator.eval(input_dict)
 

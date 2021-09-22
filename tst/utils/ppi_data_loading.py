@@ -152,7 +152,7 @@ def load_graph_data(args, device, PPI_URL='https://data.dgl.ai/dataset/ppi.zip')
             node_labels_list[num_graphs_per_split_cumulative[2]:num_graphs_per_split_cumulative[3]],
             edge_index_list[num_graphs_per_split_cumulative[2]:num_graphs_per_split_cumulative[3]])
 
-        pruning_params = prune_dataset(train_dataset, args, pruning_params=None)
+        pruning_params, prunning_ratio = prune_dataset(train_dataset, args, pruning_params=None)
         prune_dataset(validation_dataset, args, pruning_params=pruning_params)
         prune_dataset(test_dataset, args, pruning_params=pruning_params)
 

@@ -10,7 +10,7 @@ from torch.nn import Linear
 import torch.nn.functional as F
 
 from torch_geometric.data import DataLoader
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GCNConv, GATConv
 from torch_geometric.nn import global_mean_pool
 
 import tst.ogb.exp_utils
@@ -120,12 +120,43 @@ class GCN(torch.nn.Module):
         return x
 
 
-def train(model, train_loader, lr=0.01, log_every=50):
+class GAT(torch.nn.Module):
+
+    def __init__(self, dim_nodes, num_classes, heads, num_hidden):
+        super(GAT, self).__init__()
+        torch.manual_seed(12345)
+        super(GAT, self).__init__()
+        self.conv1 = GATConv(dim_nodes, num_hidden, heads=heads)
+        self.conv2 = GATConv(num_hidden*heads, num_hidden, heads=heads)
+        self.conv3 = GATConv(num_hidden*heads, num_hidden, heads=heads, concat=False)
+        self.lin = Linear(num_hidden, num_classes)
+
+    def forward(self, x, edge_index, batch):
+        # 1. Obtain node embeddings
+        x = self.conv1(x, edge_index)
+        x = F.relu(x)
+        x = self.conv2(x, edge_index)
+        x = F.relu(x)
+        x = self.conv3(x, edge_index)
+        x = F.relu(x)
+
+        # 2. Readout layer
+        x = global_mean_pool(x, batch)  # [batch_size, hidden_channels]
+
+        # 3. Apply a final classifier
+        x = F.dropout(x, p=0.5, training=self.training)
+        x = self.lin(x)
+
+        return x
+
+
+def train(args, model, train_loader, lr=0.01, log_every=50):
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = torch.nn.CrossEntropyLoss()
     start_time = time.time()
     for batch_i, data in enumerate(train_loader):  # Iterate in batches over the training dataset.
+        data = data.to(args.device)
         out = model(data.x, data.edge_index, data.batch)  # Perform a single forward pass.
         loss = criterion(out, data.y)  # Compute the loss.
         loss.backward()  # Derive gradients.
@@ -137,12 +168,13 @@ def train(model, train_loader, lr=0.01, log_every=50):
     return (time.time() - start_time) / len(train_loader)
 
 
-def func_test(model, loader, log_every=50):
+def func_test(args, model, loader, log_every=50):
     model.eval()
 
     correct = 0
     start_time = time.time()
     for batch_i, data in enumerate(loader):  # Iterate in batches over the training/test dataset.
+        data = data.to(args.device)
         out = model(data.x, data.edge_index, data.batch)
         pred = out.argmax(dim=1)  # Use the class with highest probability.
         correct += int((pred == data.y).sum())  # Check against ground-truth labels.

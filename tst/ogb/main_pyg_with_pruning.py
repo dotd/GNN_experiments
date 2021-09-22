@@ -24,7 +24,7 @@ from src.utils.extract_target_transform import ExtractTargetTransform
 from src.utils.graph_prune_utils import tg_dataset_prune
 from src.utils.logging_utils import register_logger, log_args_description, get_clearml_logger, log_command
 from src.utils.lsh_euclidean_tools import LSH
-from src.utils.minhash_tools import MinHash, MinHashRep
+from src.utils.minhash_tools import MinHash, MinHashRep, MinHashRandomProj
 from src.utils.proxy_utils import set_proxy
 from tst.ogb.encoder_utils import augment_edge, decode_arr_to_seq, encode_y_to_arr, get_vocab_mapping
 from tst.ogb.exp_utils import get_loss_function, evaluate, train
@@ -61,8 +61,7 @@ def get_args():
     parser.add_argument('--device', type=str, default=0,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--gnn', type=str, default='gcn',
-                        help='GNN gcn, or gcn-virtual (default: gcn)',
-                        choices=['gcn', 'gat', 'monet', 'pna', 'sage', 'gat_sage', 'mlp', 'mxmnet', 'arma', 'gat2', 'gat4', 'gat8'])
+                        help='GNN gcn, or gcn-virtual (default: gcn)', )
     parser.add_argument('--drop_ratio', type=float, default=0.5,
                         help='dropout ratio (default: 0.5)')
     parser.add_argument('--num_layer', type=int, default=5,
@@ -77,9 +76,11 @@ def get_args():
                         help='number of workers (default: 0)')
     parser.add_argument('--dataset', type=str, default="ogbg-molhiv",
                         help='dataset name (default: ogbg-molhiv)',
-                        choices=['ogbg-molhiv', 'ogbg-molpcba', 'ogbg-ppa', 'ogbg-code2', 'mnist', 'zinc', 'reddit',
-                                 'amazon_photo', 'amazon_comp', "Cora", "CiteSeer", "PubMed", 'QM9'])
-    parser.add_argument('--target', type=int, default=0, help='for datasets with multiple tasks, provide the target index')
+                        choices=['github', 'ogbg-molhiv', 'ogbg-molpcba', 'ogbg-ppa', 'ogbg-code2', 'mnist', 'zinc',
+                                 'reddit',
+                                 'amazon_photo', 'amazon_comp', "Cora", "CiteSeer", "PubMed", 'QM9', 'ppi', 'flickr'])
+    parser.add_argument('--target', type=int, default=0,
+                        help='for datasets with multiple tasks, provide the target index')
     parser.add_argument('--feature', type=str, default="full", help='full feature or simple feature')
     parser.add_argument('--filename', type=str, default="",
                         help='filename to output result (default: )')
@@ -88,13 +89,15 @@ def get_args():
 
     # Pruning specific params:
     parser.add_argument('--pruning_method', type=str, default='random',
-                        choices=["minhash_lsh", "random"])
+                        choices=["minhash_lsh_thresholding", "minhash_lsh_projection", "random"])
     parser.add_argument('--random_pruning_prob', type=float, default=.5)
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--wd', type=float, default=0, help='Weight decay value.')
     parser.add_argument('--num_minhash_funcs', type=int, default=1)
     parser.add_argument('--sparsity', type=int, default=25)
     parser.add_argument("--complement", action='store_true', help="")
+    parser.add_argument("--quantization_step", type=int, default=1, help="")
+
 
     # dataset specific params:
     parser.add_argument('--max_seq_len', type=int, default=5,
@@ -148,20 +151,27 @@ def register_logging_files(args):
     log_command()
     log_args_description(args)
 
+    clearml_task = None
+
     if args.enable_clearml_logger:
         tags = [
             f'Dataset: {args.dataset}',
             f'Pruning method: {args.pruning_method}',
             f'Architecture: {args.gnn}',
         ]
-        pruning_param_name = 'num_minhash_funcs' if args.pruning_method == 'minhash_lsh' else 'random_pruning_prob'
-        pruning_param = args.num_minhash_funcs if args.pruning_method == 'minhash_lsh' else args.random_pruning_prob
+        pruning_param_name = 'num_minhash_funcs' if 'minhash_lsh' in args.pruning_method else 'random_pruning_prob'
+        pruning_param = args.num_minhash_funcs if 'minhash_lsh' in args.pruning_method else args.random_pruning_prob
         tags.append(f'{pruning_param_name}: {pruning_param}')
-        clearml_logger = get_clearml_logger(project_name="GNN_pruning",
-                                            task_name=get_time_str(),
-                                            tags=tags)
 
-    return tb_writer, best_results_file, log_file
+        if pruning_param_name == 'num_minhash_funcs':
+            tags.append(f'Sparsity: {args.sparsity}')
+            tags.append(f'Complement: {args.complement}')
+
+        clearml_task = get_clearml_logger(f"GNN_{args.dataset}_{args.target}_{args.gnn}",
+                                          task_name=get_time_str(),
+                                          tags=tags)
+
+    return tb_writer, best_results_file, log_file, clearml_task
 
 
 def load_dataset(args):
@@ -182,6 +192,7 @@ def load_dataset(args):
         test_data = list(test_data)
 
     elif args.dataset == 'QM9':
+        # Contains 19 targets. Use only the first 12 (0-11)
         QM9_VALIDATION_START = 110000
         QM9_VALIDATION_END = 120000
         dataset = QM9(root='dataset', transform=ExtractTargetTransform(args.target)).shuffle()
@@ -252,7 +263,35 @@ def prune_datasets(train_data, validation_data, test_data, args):
 def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruning_params=None):
     if original_dataset is None or len(original_dataset) == 0:
         return None
-    if args.pruning_method == 'minhash_lsh':
+    if args.pruning_method == 'minhash_lsh_projection':
+        dim_nodes = original_dataset[0].x.shape[1] if len(original_dataset[0].x.shape) == 2 else 0
+        std_of_threshold = 1
+        mean_of_threshold = 1
+        dim_edges = 0
+        if original_dataset[0].edge_attr is not None:
+            if len(original_dataset[0].edge_attr.shape) == 1:
+                dim_edges = 1
+            else:
+                dim_edges = original_dataset[0].edge_attr.shape[1]
+
+        din = 0
+        if dim_nodes != 0:
+            din += dim_nodes * 2
+        if dim_edges != 0:
+            din += dim_edges
+
+        minhash_lsh = MinHashRandomProj(N=args.num_minhash_funcs,
+                                        random=random,
+                                        sparsity=args.sparsity,
+                                        din=din,
+                                        quantization_step=args.quantization_step)
+
+        prunning_ratio = tg_dataset_prune(tg_dataset=original_dataset,
+                                          method="minhash_lsh_projection",
+                                          minhash=minhash_lsh, )
+        print(f"prunning_ratio = {prunning_ratio}")
+
+    elif args.pruning_method == 'minhash_lsh_thresholding':
         if pruning_params is None:
             dim_nodes = original_dataset[0].x.shape[1] if len(original_dataset[0].x.shape) == 2 else 0
             lsh_num_funcs = args.num_minhash_funcs
@@ -292,7 +331,7 @@ def prune_dataset(original_dataset, args, random=np.random.RandomState(0), pruni
         print(f"lsh_edges:\n{pruning_params['edges']['lsh']}")
 
         prunning_ratio = tg_dataset_prune(tg_dataset=original_dataset,
-                                          method="minhash_lsh",
+                                          method="minhash_lsh_thresholding",
                                           minhash=pruning_params['minhash'],
                                           lsh_nodes=pruning_params['nodes']['lsh'],
                                           lsh_edges=pruning_params['edges']['lsh'],
@@ -340,9 +379,13 @@ def main():
     # Training settings
     args = get_args()
 
-    tb_writer, best_results_file, log_file = register_logging_files(args)
+    tb_writer, best_results_file, log_file, clearml_task = register_logging_files(args)
 
-    device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() and args.device != 'cpu' else torch.device("cpu")
+    if args.device == 'cuda' and torch.cuda.is_available():
+        device = 'cuda'
+    else:
+        device = torch.device(
+            "cuda:" + str(args.device)) if torch.cuda.is_available() and args.device != 'cpu' else torch.device("cpu")
 
     if args.proxy:
         set_proxy()
@@ -368,10 +411,12 @@ def main():
     # Prune the train data and cache the parameters for further usage
     train_data, validation_data, test_data = prune_datasets(train_data, validation_data, test_data, args)
 
-    avg_edge_count = np.mean(
-        [idx.shape[1] for idx in (sample.edge_index for sample in train_data if sample.num_edges > 0)])
+    edges_per_sample = [idx.shape[1] for idx in (sample.edge_index for sample in train_data if sample.num_edges > 0)]
+    avg_edge_count = np.mean(edges_per_sample) if len(edges_per_sample) != 0 else 0
     logging.info(
         f"Old average number of edges: {old_avg_edge_count}. New one: {avg_edge_count}. Change: {(old_avg_edge_count - avg_edge_count) / old_avg_edge_count * 100}\%")
+
+    prunning_ratio = avg_edge_count / old_avg_edge_count
 
     train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True,
                               num_workers=args.num_workers)
@@ -399,11 +444,14 @@ def main():
     test_curve = []
     train_curve = []
 
+    train_times = []
+    val_times = []
+
     for epoch in range(1, args.epochs + 1):
         logging.info(f'=====Epoch {epoch}')
         logging.info('Training...')
-        training_iter_per_sec = train(model, dataset, device, train_loader, optimizer, cls_criterion=cls_criterion,
-                                      tb_writer=tb_writer)
+        seconds_per_iter = train(model, dataset, device, train_loader, optimizer, cls_criterion=cls_criterion,
+                                 tb_writer=tb_writer)
 
         if scheduler is not None:
             scheduler.step(epoch)
@@ -413,10 +461,13 @@ def main():
                               arr_to_seq=idx2word_mapper, dataset_name=args.dataset, return_avg_time=False)
         valid_perf = evaluate(model=model, device=device, loader=valid_loader, evaluator=evaluator,
                               arr_to_seq=idx2word_mapper, dataset_name=args.dataset, return_avg_time=False)
-        test_perf, test_iter_per_sec = evaluate(model=model, device=device, loader=test_loader,
-                                                evaluator=evaluator,
-                                                arr_to_seq=idx2word_mapper, dataset_name=args.dataset,
-                                                return_avg_time=True)
+        test_perf, test_seconds_per_iter = evaluate(model=model, device=device, loader=test_loader,
+                                                    evaluator=evaluator,
+                                                    arr_to_seq=idx2word_mapper, dataset_name=args.dataset,
+                                                    return_avg_time=True)
+
+        train_times.append(seconds_per_iter)
+        val_times.append(test_seconds_per_iter)
 
         logging.info({'Train': train_perf, 'Validation': valid_perf, 'Test': test_perf})
 
@@ -439,9 +490,14 @@ def main():
                                        'Test': test_perf[dataset.eval_metric]},
                                       epoch)
 
-    best_val_epoch = np.argmax(np.array(valid_curve)).item() if valid_perf is not None else np.argmax(
-        np.array(test_curve)).item()
-    best_train = max(train_curve)
+    if dataset.eval_metric in ['rmse', 'mae']:
+        best_val_epoch = np.argmin(np.array(valid_curve)).item() if valid_perf is not None else np.argmax(
+            np.array(test_curve)).item()
+        best_train = min(train_curve)
+    else:
+        best_val_epoch = np.argmax(np.array(valid_curve)).item() if valid_perf is not None else np.argmax(
+            np.array(test_curve)).item()
+        best_train = max(train_curve)
     finish_time = time()
     logging.info(f'Finished training! Elapsed time: {(finish_time - start_time) / 60} minutes')
     if valid_perf is not None:
@@ -451,14 +507,24 @@ def main():
     best_results = {'Train': train_curve[best_val_epoch],
                     'Test': test_curve[best_val_epoch],
                     'BestTrain': best_train,
-                    r'training iter/sec': training_iter_per_sec,
-                    r'test iter/sec': test_iter_per_sec}
+                    r'training sec/iter': seconds_per_iter,
+                    r'test sec/iter': test_seconds_per_iter}
     if valid_perf is not None:
         best_results['Val'] = valid_curve[best_val_epoch]
 
     if best_results_file is not None:
         with open(best_results_file, 'w') as fp:
             json.dump(best_results, fp)
+
+    experiment_logs = dict()
+    experiment_logs = clearml_task.connect(experiment_logs)
+    experiment_logs['time/train'] = np.mean(train_times)
+    experiment_logs['time/val'] = np.mean(val_times)
+    experiment_logs['keep edges'] = prunning_ratio
+    experiment_logs[f'best train {dataset.eval_metric}'] = train_curve[best_val_epoch]
+    if valid_perf is not None:
+        experiment_logs[f'best val {dataset.eval_metric}'] = valid_curve[best_val_epoch]
+    experiment_logs[f'best test {dataset.eval_metric}'] = test_curve[best_val_epoch]
 
     if args.send_email:
         with GmailNotifier(username=args.email_user, password=args.email_password, to=args.email_to) as noti:

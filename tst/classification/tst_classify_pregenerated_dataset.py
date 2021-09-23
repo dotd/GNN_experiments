@@ -20,7 +20,6 @@ def main(args):
         with open(args.dataset_path, 'wb') as fp:
             pickle.dump(graph_dataset, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
-        exit()
     else:
         with open(args.dataset_path, 'rb') as fp:
             graph_dataset = pickle.load(fp)

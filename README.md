@@ -42,6 +42,58 @@ Possible parameters:
 
 
 ## Running graph regression experiments
+Running graph regression experiments is done via the script `tst.ogb.main_pyg_with_pruning.py`. The script accepts the same arguments as the previous scripts. Additionally, for `QM9` we added another argument `target`. Please refer to the following for explanations of the targets and their indices:
 
+https://pytorch-geometric.readthedocs.io/en/latest/modules/datasets.html#torch_geometric.datasets.QM9
+
+An example command is:
+
+```commandline
+python -m tst.ogb.main_pyg_with_pruning --dataset QM9 --gnn mxmnet --pruning_method random --random_pruning_prob 0.2 --epochs 150 --target 9 --batch_size 128 --device 0
+```
+
+This will run an experiment using the `MXMNET` architecture with its default settings. The input graphs will be pruned preserving 20% of the edges and the target to predict will be `Enthalpy at 298.15K`. 
+
+Another example for running an experiment on `ZINC` is:
+
+```commandline
+python -m tst.ogb.main_pyg_with_pruning --dataset zinc --gnn pna --pruning_method random --random_pruning_prob 1.0 --epochs 150
+```
+
+In this case, no target is specified since `ZINC` contains only 1 target.
 
 ## Running graph classification experiments on the synthetic data
+This series of experiments is run via the script `tst.classification.tst_classify_pregenerated_dataset.py`. This script is responsible for generating the synthetic dataset, training and test. You can use this script for generating the dataset and save it for training and testing later. This feature is useful when you want to use the same dataset multiple times.
+
+The following are the parameters for the synthetic data generator (as we describe in the paper):
+* num_samples
+* num classes
+* min_nodes
+* max_nodes
+* dim_nodes
+* dim_edges
+* centers_nodes_std
+* centers_edges_std
+* node_additive_noise_std
+* edge_additive_noise_std
+* symmetric_flag
+* noise_remove_node
+
+### Generating a dataset for later usage
+Run:
+
+```commandline
+python -m tst.classification.tst_classify_pregenerated_dataset --generate_only --dataset_path dataset/mydataset.file 
+```
+
+
+This will generate a dataset with the default settings and save it to the file called "dataset/mydataset.file"
+
+### Running an experiment
+You can generate a new dataset on the fly or use a pregenerated dataset. To use a pregenerated dataset, make sure the flag `generate_only` is not used. Otherwise, the script will generate a new dataset.
+
+Example:
+
+```
+python -m tst.classification.tst_classify_pregenerated_dataset --dataset_path syn_data.file --gnn gat --epochs 200 --pruning_method minhash_lsh_projection --num_minhash_funcs 15 --device cuda:1
+```

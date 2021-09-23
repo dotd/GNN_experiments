@@ -11,14 +11,15 @@ from src.utils.date_utils import get_time_str
 from src.utils.logging_utils import get_clearml_logger
 from tst.ogb.main_pyg_with_pruning import prune_dataset
 
-start_time = time.time()
-
 import src.synthetic.random_graph_dataset as rgd
 from tst.torch_geometric.tst_torch_geometric1 import GCN, GAT
 
 import src.synthetic.synthetic_utils as su
 from tst.torch_geometric.tst_torch_geometric1 import train, func_test
 from torch_geometric.data import DataLoader
+
+
+start_time = time.time()
 
 
 def get_args():
@@ -66,7 +67,6 @@ def get_args():
                         action='store_true',
                         help="Enable logging to ClearML server")
 
-
     # dataset specific params:
     parser.add_argument('--dataset_path', type=str, help='')
     parser.add_argument('--generate_only', default=False, action='store_true',
@@ -113,7 +113,7 @@ def get_model(arch, dim_nodes, num_classes, num_hidden=40):
 
     return model
 
-  
+
 def tst_classify_networkx_synthetic_tg(
         args,
         num_samples=1000,
@@ -197,7 +197,6 @@ def tst_classify_networkx_synthetic_tg(
             f'{time.time() - start_time:.4f} Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
 
     return graph_dataset, prunning_ratio, best_train, best_test, np.mean(train_times), np.mean(test_times)
-
 
 
 def main(args):

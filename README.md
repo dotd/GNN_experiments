@@ -1,5 +1,7 @@
 # LSP : Acceleration and Regularization of Graph Neural Networks via Locality Sensitive Pruning of Graphs
 
+![LSP intro](figures/intro.png "LSP")
+
 This repository contains the code of the experiments performed for our paper.
 
 For instructions for how to run the code, please see the following.

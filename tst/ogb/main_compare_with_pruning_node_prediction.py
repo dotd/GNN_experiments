@@ -13,7 +13,6 @@ from tst.ogb.main_pyg_with_pruning import prune_dataset, get_args
 from tst.ogb.main_with_pruning_node_prediction import get_model, get_dataset, test
 
 start_time = time.time()
-# Created by: Eitan Kosman, BCAI
 
 sage = False
 

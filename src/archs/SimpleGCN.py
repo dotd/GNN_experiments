@@ -3,7 +3,6 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, global_mean_pool
 
 
-# Created by: Eitan Kosman, BCAI
 # A simple GCN architecture, generally used for testing
 
 

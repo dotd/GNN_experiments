@@ -1,17 +1,15 @@
 import argparse
-
-import numpy as np
 import time
 
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from torch.utils.tensorboard import SummaryWriter
-from torch_geometric.nn import GATConv, GCNConv
+from torch_geometric.nn import GCNConv
 
-from src.utils.csv_utils import prepare_csv
 from src.utils.date_utils import get_time_str
 from src.utils.logging_utils import get_clearml_logger
-from tst.ogb.main_pyg_with_pruning import prune_datasets, prune_dataset
+from tst.ogb.main_pyg_with_pruning import prune_dataset
 
 start_time = time.time()
 
@@ -67,11 +65,7 @@ def get_args():
                         default=False,
                         action='store_true',
                         help="Enable logging to ClearML server")
-    parser.add_argument('--send_email', default=False, action='store_true', help='Send an email when finished')
-    parser.add_argument('--email_user', default=r'eitan.kosman', help='Username for sending the email')
-    parser.add_argument('--email_password', default='kqdopssgpcglbwaj', help='Password for sending the email')
-    parser.add_argument('--email_to', default=r'eitan.kosman@gmail.com',
-                        help='Email of the receiver of the results email')
+
 
     # dataset specific params:
     parser.add_argument('--dataset_path', type=str, help='')

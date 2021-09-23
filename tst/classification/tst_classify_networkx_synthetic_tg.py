@@ -66,11 +66,6 @@ def get_args():
                         default=False,
                         action='store_true',
                         help="Enable logging to ClearML server")
-    parser.add_argument('--send_email', default=False, action='store_true', help='Send an email when finished')
-    parser.add_argument('--email_user', default=r'eitan.kosman', help='Username for sending the email')
-    parser.add_argument('--email_password', default='kqdopssgpcglbwaj', help='Password for sending the email')
-    parser.add_argument('--email_to', default=r'eitan.kosman@gmail.com',
-                        help='Email of the receiver of the results email')
 
     # dataset specific params:
     parser.add_argument('--num_samples', type=int, default=25000, help='')

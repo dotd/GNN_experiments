@@ -4,7 +4,6 @@ import numpy as np
 from torch import nn
 
 
-# Created by: Eitan Kosman, BCAI
 # Implementation of a multi-layer fully connected network with linearly decreasing layer sizes and relu activations
 
 

@@ -19,7 +19,6 @@ from src.utils.date_utils import get_time_str
 from src.utils.logging_utils import get_clearml_logger
 from tst.ogb.main_pyg_with_pruning import prune_dataset, get_args
 
-# Created by: Eitan Kosman, BCAI
 sage = False
 
 

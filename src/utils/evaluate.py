@@ -11,7 +11,6 @@ except ImportError:
 ### Evaluator for graph classification
 
 
-# Original file from OGB, Edit by Eitan Kosman, BCAI
 
 
 class Evaluator(OriginalEvaluator):

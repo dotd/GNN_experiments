@@ -1,6 +1,5 @@
 import argparse
 import enum
-import pathlib
 import time
 import numpy as np
 
@@ -10,7 +9,6 @@ from sklearn.metrics import f1_score
 from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 
-from src.archs.node_prediction import NodeGCN
 from src.archs.ppi_gat.ppi_gat import GAT, LayerType
 from src.utils.date_utils import get_time_str
 from src.utils.logging_utils import get_clearml_logger

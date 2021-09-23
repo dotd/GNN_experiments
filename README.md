@@ -15,6 +15,12 @@ Each script has a few input parameters passed via `argparse`. The parameters we 
 * sparsity - relevant for minhash_lsh pruning methods only. indicates the amount of entries used for calculating signatures.
 * quantization_step - relevant for `minhash_lsh_projection` only. indicates the bin length for hashing with random projections.
 
+## Install Anaconda Environment
+
+```commandline
+conda env create -f environment.yml
+conda activate LSPruning
+```
 
 ## Running node classification experiments
 This section of experiments divides into 2 parts:

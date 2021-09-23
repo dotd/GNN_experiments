@@ -283,4 +283,3 @@ dependencies:
     - yacs==0.1.8
     - yarl==1.5.1
     - youtube-dl==2021.6.6
-prefix: /home/eitank/anaconda3/envs/torch

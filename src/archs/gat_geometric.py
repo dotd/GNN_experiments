@@ -3,8 +3,6 @@ import torch.nn.functional as F
 from torch_geometric.nn import GATConv
 
 
-
-
 class GAT(torch.nn.Module):
     """
     A simple graph model that utilizes attention layers

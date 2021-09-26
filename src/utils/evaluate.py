@@ -11,8 +11,6 @@ except ImportError:
 ### Evaluator for graph classification
 
 
-
-
 class Evaluator(OriginalEvaluator):
     def __init__(self, name):
         # Initialize the parent object for an OGB dataset, because it recognizes only OGB datasets

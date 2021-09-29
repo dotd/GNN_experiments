@@ -44,8 +44,6 @@ def get_args():
     parser.add_argument('--dataset', type=str, default="synthetic",
                         help='dataset name (default: ogbg-molhiv)',
                         choices=['synthetic'])
-    parser.add_argument('--proxy', action="store_true", default=False,
-                        help="Set proxy env. variables. Need in bosch networks.", )
 
     # Pruning specific params:
     parser.add_argument('--pruning_method', type=str, default='random', )

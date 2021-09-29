@@ -39,8 +39,6 @@ def main():
                         help='full feature or simple feature')
     parser.add_argument('--filename', type=str, default="",
                         help='filename to output result (default: )')
-    parser.add_argument('--proxy', action="store_true", default=False,
-                        help="Set proxy env. variables. Need in bosch networks.", )
     # dataset specific params:
     parser.add_argument('--max_seq_len', type=int, default=5,
                         help='Maximum sequence length to predict -- for ogbgb-code (default: 5)')

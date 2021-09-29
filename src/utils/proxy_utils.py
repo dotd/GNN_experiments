@@ -16,17 +16,3 @@ def load_user_password(file=f"{ROOT_DIR}/login_credentials.txt"):
     terms = [term.strip() for term in terms[0:2]]
     user, password = terms[0], terms[1]
     return user, password
-
-
-def set_proxy():
-    terms = load_user_password()
-    if terms is False:
-        return
-    import os
-
-    proxy = f'http://{terms[0]}:{terms[1]}@10.4.103.143:8080'
-
-    os.environ['http_proxy'] = proxy
-    os.environ['HTTP_PROXY'] = proxy
-    os.environ['https_proxy'] = proxy
-    os.environ['HTTPS_PROXY'] = proxy

@@ -8,7 +8,6 @@ from torch_geometric.data import DataLoader
 from torchvision import transforms
 
 from ogb.graphproppred import PygGraphPropPredDataset, Evaluator
-from src.utils.proxy_utils import set_proxy
 from tst.ogb.encoder_utils import augment_edge, decode_arr_to_seq, encode_y_to_arr, get_vocab_mapping
 from tst.ogb.exp_utils import get_loss_function, evaluate, train
 from tst.ogb.model_and_data_utils import add_zeros, create_model
@@ -51,9 +50,6 @@ def main():
     args = parser.parse_args()
 
     device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
-
-    if args.proxy:
-        set_proxy()
 
     # automatic data loading and splitting
     transform = add_zeros if args.dataset == 'ogbg-ppa' else None

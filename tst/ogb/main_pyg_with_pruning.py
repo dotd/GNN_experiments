@@ -25,7 +25,6 @@ from src.utils.graph_prune_utils import tg_dataset_prune
 from src.utils.logging_utils import register_logger, log_args_description, get_clearml_logger, log_command
 from src.utils.lsh_euclidean_tools import LSH
 from src.utils.minhash_tools import MinHash, MinHashRep, MinHashRandomProj
-from src.utils.proxy_utils import set_proxy
 from tst.ogb.encoder_utils import augment_edge, decode_arr_to_seq, encode_y_to_arr, get_vocab_mapping
 from tst.ogb.exp_utils import get_loss_function, evaluate, train
 from tst.ogb.model_and_data_utils import add_zeros, create_model
@@ -118,9 +117,9 @@ def get_args():
                         action='store_true',
                         help="Enable logging to ClearML server")
     parser.add_argument('--send_email', default=False, action='store_true', help='Send an email when finished')
-    parser.add_argument('--email_user', default=r'eitan.kosman', help='Username for sending the email')
-    parser.add_argument('--email_password', default='kqdopssgpcglbwaj', help='Password for sending the email')
-    parser.add_argument('--email_to', default=r'eitan.kosman@gmail.com',
+    parser.add_argument('--email_user', help='Username for sending the email')
+    parser.add_argument('--email_password', help='Password for sending the email')
+    parser.add_argument('--email_to',
                         help='Email of the receiver of the results email')
 
     return parser.parse_args()
@@ -386,9 +385,6 @@ def main():
     else:
         device = torch.device(
             "cuda:" + str(args.device)) if torch.cuda.is_available() and args.device != 'cpu' else torch.device("cpu")
-
-    if args.proxy:
-        set_proxy()
 
     dataset, train_data, validation_data, test_data, cls_criterion, idx2word_mapper = load_dataset(args)
 

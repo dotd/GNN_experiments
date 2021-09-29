@@ -1,22 +1,19 @@
+import copy
+import gc
+import pickle
 import time
 
 import numpy as np
-import pickle
 import torch
-import gc
-import copy
-
-from torch.nn import Linear
 import torch.nn.functional as F
-
+from torch.nn import Linear
 from torch_geometric.data import DataLoader
 from torch_geometric.nn import GCNConv, GATConv
 from torch_geometric.nn import global_mean_pool
 
-import tst.ogb.exp_utils
 from definitions_gnn_experiments import ROOT_DIR
-from src.utils.proxy_utils import set_proxy
-from src.utils.file_utils import create_folder_safe, save_str, file_exists
+from src.utils.file_utils import create_folder_safe, file_exists
+
 
 # Download dataset
 
@@ -35,7 +32,6 @@ def load_TU_dataset(name = 'MUTAG'):
     else:
         print("Did not load yet: download data and store")
         from torch_geometric.datasets import TUDataset
-        set_proxy()
         dataset = TUDataset(root=f'{ROOT_DIR}/data/TUDataset', name=name)
         create_folder_safe(pickle_path)
         pickle.dump(dataset, open(pickle_full, "wb"), protocol=-1)

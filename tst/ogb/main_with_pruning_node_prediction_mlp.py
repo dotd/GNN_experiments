@@ -14,9 +14,6 @@ from src.utils.logging_utils import get_clearml_logger
 from tst.ogb.main_pyg_with_pruning import prune_dataset, get_args
 
 
-# Created by: Eitan Kosman, BCAI
-
-
 def train(epoch, dataset, train_loader, model, device, optimizer, tb_writer):
     """
     Performs a training episode.
